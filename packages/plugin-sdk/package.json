@@ -34,7 +34,12 @@
     "react": { "optional": true }
   },
   "devDependencies": {
+    "@testing-library/react": "^16.0.0",
     "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "jsdom": "^25.0.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"
   }
