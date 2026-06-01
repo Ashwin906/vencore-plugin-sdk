@@ -52,15 +52,16 @@ describe('dispatchBridgeCall — table access', () => {
     expect(result.error?.code).toBe('FORBIDDEN');
   });
 
-  it('allows declared table (returns stub until Task 7)', async () => {
-    const db = makeDb();
+  it('allows declared table and dispatches to table-client', async () => {
+    const db = makeDb([{ id: 'row-1' }]);
     const result = await dispatchBridgeCall(
       db,
       makeCtx({ tables: ['my_cache'] }),
       { method: 'table.list', payload: { name: 'my_cache' } },
     );
-    // Table declared — passes access check. Returns NOT_IMPLEMENTED until Task 7 wires it up.
-    expect(result.error?.code).toBe('NOT_IMPLEMENTED');
+    // Table declared — passes access check and dispatches to dispatchTableCall.
+    expect(result.error).toBeNull();
+    expect(result.data).toEqual([{ id: 'row-1' }]);
   });
 });
 

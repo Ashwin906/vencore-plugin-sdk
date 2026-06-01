@@ -2,6 +2,7 @@ import type { Kysely } from 'kysely';
 import type { PluginPermission } from '@vantage/plugin-types';
 import type { BridgeCall, BridgeResult } from '@vantage/plugin-sdk';
 import { checkPermission } from './permissions';
+import { dispatchTableCall } from './table-client';
 
 export interface BridgeContext {
   workspaceId: string;
@@ -130,9 +131,7 @@ export async function dispatchBridgeCall(
             error: { code: 'FORBIDDEN', message: `Table '${tableName}' is not declared in the plugin manifest.` },
           };
         }
-        // Delegate to table-client (to be implemented in Task 7)
-        // For now return a stub error so the router is testable
-        return { data: null, error: { code: 'NOT_IMPLEMENTED', message: 'Table operations require plugin-runtime table-client (Task 7)' } };
+        return dispatchTableCall(db, ctx, verb, p);
       }
 
       default:
