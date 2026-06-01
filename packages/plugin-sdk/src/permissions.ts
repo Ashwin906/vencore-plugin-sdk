@@ -24,13 +24,16 @@ export type PermittedResource<Perms extends readonly PluginPermission[]> =
 export type PermittedWriteResource<Perms extends readonly PluginPermission[]> =
   ExtractWriteResource<Perms[number]> & KnownResource;
 
-type HasPerm<Perms extends readonly PluginPermission[], P extends PluginPermission> =
+export type HasPerm<Perms extends readonly PluginPermission[], P extends PluginPermission> =
   P extends Perms[number] ? true : false;
 
 // ── Namespaces ───────────────────────────────────────────────────────────────
 
-export interface StorageNamespace {
+export interface StorageReadNamespace {
   get<T = unknown>(key: string): Promise<T | null>;
+}
+
+export interface StorageNamespace extends StorageReadNamespace {
   set(key: string, value: unknown): Promise<void>;
   delete(key: string): Promise<void>;
 }
@@ -64,8 +67,8 @@ export type SafePermittedVantage<Perms extends readonly PluginPermission[]> = {
     id: string,
     data: Partial<ResourceInput<R>>,
   ): Promise<PluginResult<ResourceRow<R>>>;
-  delete(
-    resource: PermittedWriteResource<Perms>,
+  delete<R extends PermittedWriteResource<Perms>>(
+    resource: R,
     id: string,
   ): Promise<PluginResult<void>>;
   action<T = unknown>(
@@ -95,11 +98,15 @@ export type PermittedVantage<Perms extends readonly PluginPermission[]> = {
     id: string,
     data: Partial<ResourceInput<R>>,
   ): Promise<ResourceRow<R>>;
-  delete(resource: PermittedWriteResource<Perms>, id: string): Promise<void>;
+  delete<R extends PermittedWriteResource<Perms>>(resource: R, id: string): Promise<void>;
   action<T = unknown>(resource: string, action: string, payload?: unknown): Promise<T>;
   table(name: string): PluginTableClient;
   on(event: PluginHookEvent, handler: (payload: unknown) => Promise<void> | void): void;
-  storage: HasPerm<Perms, 'storage:read'> extends true ? StorageNamespace : never;
+  storage: HasPerm<Perms, 'storage:write'> extends true
+      ? StorageNamespace
+      : HasPerm<Perms, 'storage:read'> extends true
+        ? StorageReadNamespace
+        : never;
   http: HasPerm<Perms, 'http:fetch'> extends true ? HttpNamespace : never;
   safe: SafePermittedVantage<Perms>;
 };
