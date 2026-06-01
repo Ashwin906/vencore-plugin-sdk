@@ -1,7 +1,6 @@
 import {
   useState,
   useEffect,
-  useRef,
   useCallback,
 } from 'react';
 import type {
@@ -54,7 +53,7 @@ export function useList<R extends KnownResource>(
     loading: !opts?.skip,
     error: null,
   });
-  const refetchCounter = useRef(0);
+  const [refetchCounter, setRefetchCounter] = useState(0);
   const filterKey = JSON.stringify(filter);
 
   useEffect(() => {
@@ -70,9 +69,9 @@ export function useList<R extends KnownResource>(
       });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resource, filterKey, refetchCounter.current, opts?.skip]);
+  }, [resource, filterKey, refetchCounter, opts?.skip]);
 
-  const refetch = useCallback(() => { refetchCounter.current++; }, []);
+  const refetch = useCallback(() => { setRefetchCounter((c) => c + 1); }, []);
   return { ...state, refetch };
 }
 
@@ -239,7 +238,7 @@ export function usePluginTable(
     error: null,
   });
   const queryKey = JSON.stringify(query);
-  const refetchCounter = useRef(0);
+  const [refetchCounter, setRefetchCounter] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -255,8 +254,8 @@ export function usePluginTable(
       });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tableName, queryKey, refetchCounter.current]);
+  }, [tableName, queryKey, refetchCounter]);
 
-  const refetch = useCallback(() => { refetchCounter.current++; }, []);
+  const refetch = useCallback(() => { setRefetchCounter((c) => c + 1); }, []);
   return { ...state, refetch };
 }
