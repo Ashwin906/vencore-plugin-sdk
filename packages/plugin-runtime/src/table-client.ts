@@ -119,11 +119,16 @@ export async function dispatchTableCall(
 
       case 'count': {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const result = await (db as any)
+        let cq = (db as any)
           .selectFrom(physical)
           .select((eb: any) => eb.fn.countAll().as('count'))
-          .where('workspace_id', '=', ctx.workspaceId)
-          .executeTakeFirstOrThrow();
+          .where('workspace_id', '=', ctx.workspaceId);
+        if (p.where) {
+          for (const [k, v] of Object.entries(p.where as Record<string, unknown>)) {
+            cq = cq.where(k, '=', v);
+          }
+        }
+        const result = await cq.executeTakeFirstOrThrow();
         return { data: Number(result.count), error: null };
       }
 
