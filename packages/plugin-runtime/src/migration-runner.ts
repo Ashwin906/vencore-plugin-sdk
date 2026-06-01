@@ -20,12 +20,18 @@ export async function ensureMigrationLog(db: DB): Promise<void> {
     .addColumn('version', 'varchar', (col: any) => col.notNull())
     .addColumn('direction', 'varchar', (col: any) => col.notNull())
     .addColumn('applied_at', 'timestamptz', (col: any) => col.notNull().defaultTo(sql`now()`))
+    .addUniqueConstraint('plugin_migration_log_unique', ['plugin_slug', 'workspace_id', 'version', 'direction'])
     .execute();
 }
 
 /**
  * Runs all missing migrations for a plugin in a workspace, in ascending version order.
  * Idempotent — already-applied versions are skipped.
+ *
+ * @note Not safe for concurrent calls with identical (pluginSlug, workspaceId).
+ * The unique constraint on plugin_migration_log prevents duplicate log entries,
+ * but DDL in migration.up may still execute twice under concurrent load.
+ * Install endpoints should serialize calls per plugin+workspace.
  */
 export async function runMigrations(
   db: DB,
@@ -70,19 +76,21 @@ export async function runMigrations(
 /**
  * Rolls back migrations in reverse order.
  * No-op for migrations without a `down` SQL.
+ *
+ * @param toVersion Roll back all migrations at or below this version.
  */
 export async function rollbackMigrations(
   db: DB,
   pluginSlug: string,
   workspaceId: string,
   migrations: PluginMigration[],
-  fromVersion: string,
+  toVersion: string,
 ): Promise<void> {
   await ensureMigrationLog(db);
 
   const sorted = [...migrations]
     .sort((a, b) => b.version.localeCompare(a.version))
-    .filter((m) => m.version.localeCompare(fromVersion) <= 0 && m.down);
+    .filter((m) => m.version.localeCompare(toVersion) <= 0 && m.down);
 
   for (const migration of sorted) {
     if (!migration.down) continue;

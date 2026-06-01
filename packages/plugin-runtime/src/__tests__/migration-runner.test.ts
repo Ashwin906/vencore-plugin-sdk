@@ -42,6 +42,7 @@ function makeMockDb(appliedVersions: string[] = []) {
       createTable: vi.fn().mockReturnValue({
         ifNotExists: vi.fn().mockReturnThis(),
         addColumn: vi.fn().mockReturnThis(),
+        addUniqueConstraint: vi.fn().mockReturnThis(),
         execute: sqlExecute,
       }),
     },
