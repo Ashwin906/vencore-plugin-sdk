@@ -1,5 +1,5 @@
 import type { Kysely } from 'kysely';
-import type { PluginPermission } from '@vantage/plugin-types';
+import type { PluginPermission, HttpResponse } from '@vantage/plugin-types';
 import type { BridgeCall, BridgeResult } from '@vantage/plugin-sdk';
 import { checkPermission } from './permissions';
 import { dispatchTableCall } from './table-client';
@@ -132,6 +132,35 @@ export async function dispatchBridgeCall(
           };
         }
         return dispatchTableCall(db, ctx, verb, p);
+      }
+
+      case 'http': {
+        if (verb !== 'fetch') {
+          return { data: null, error: { code: 'UNKNOWN_METHOD', message: `Unknown method: ${method}` } };
+        }
+        const url = p.url as string;
+        const timeoutMs = (p.timeout as number | undefined) ?? 30_000;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const res = await fetch(url, {
+            method: (p.method as string | undefined) ?? 'GET',
+            headers: p.headers as Record<string, string> | undefined,
+            body: p.body as string | undefined,
+            signal: controller.signal,
+          });
+          const body = await res.text();
+          const headers: Record<string, string> = {};
+          res.headers.forEach((value, key) => { headers[key] = value; });
+          const response: HttpResponse = { status: res.status, headers, body, ok: res.ok };
+          return { data: response, error: null };
+        } catch (fetchErr) {
+          const isAbort = fetchErr instanceof Error && fetchErr.name === 'AbortError';
+          const message = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+          return { data: null, error: { code: isAbort ? 'TIMEOUT' : 'BRIDGE_ERROR', message } };
+        } finally {
+          clearTimeout(timer);
+        }
       }
 
       default:
