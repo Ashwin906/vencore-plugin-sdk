@@ -21,6 +21,7 @@ export class VantageBackendImpl {
   private _handlers = new Map<string, Array<(p: unknown) => Promise<void> | void>>();
   readonly storage: StorageNamespace;
   readonly http: HttpNamespace;
+  readonly safe: SafePermittedVantage<readonly PluginPermission[]>;
 
   constructor(bridge: BridgeFn) {
     this._bridge = bridge;
@@ -38,11 +39,25 @@ export class VantageBackendImpl {
       fetch: (url: string, options?: HttpFetchOptions) =>
         this._call<HttpResponse>('http.fetch', { url, options }),
     };
+
+    const wrap = <T>(fn: () => Promise<T>): Promise<PluginResult<T>> =>
+      fn()
+        .then((data) => ({ data, error: null } as PluginResult<T>))
+        .catch((error) => ({ data: null, error } as PluginResult<T>));
+
+    this.safe = {
+      list: (resource, filter?) => wrap(() => this.list(resource as string, filter) as Promise<any>),
+      get: (resource, id) => wrap(() => this.get(resource as string, id) as Promise<any>),
+      create: (resource, data) => wrap(() => this.create(resource as string, data) as Promise<any>),
+      update: (resource, id, data) => wrap(() => this.update(resource as string, id, data) as Promise<any>),
+      delete: (resource, id) => wrap(() => this.delete(resource as string, id)),
+      action: (resource, action, payload?) => wrap(() => this.action(resource, action, payload)),
+    };
   }
 
   protected async _call<T>(method: string, payload: unknown): Promise<T> {
     const result: BridgeResult = await this._bridge({ method, payload });
-    if (result.error) throw result.error;
+    if (result.error !== null) throw result.error;
     return result.data as T;
   }
 
@@ -63,7 +78,7 @@ export class VantageBackendImpl {
   }
 
   async delete(resource: string, id: string): Promise<void> {
-    return this._call(`${resource}.delete`, { id });
+    return this._call<void>(`${resource}.delete`, { id });
   }
 
   async action<T = unknown>(resource: string, action: string, payload?: unknown): Promise<T> {
@@ -72,12 +87,12 @@ export class VantageBackendImpl {
 
   table(name: string): PluginTableClient {
     return {
-      list: (opts?) => this._call('table.list', { name, ...opts }),
-      get: (id) => this._call('table.get', { name, id }),
-      insert: (data) => this._call('table.insert', { name, data }),
-      update: (id, data) => this._call('table.update', { name, id, data }),
+      list: (opts?) => this._call<Record<string, unknown>[]>('table.list', { name, ...opts }),
+      get: (id) => this._call<Record<string, unknown>>('table.get', { name, id }),
+      insert: (data) => this._call<Record<string, unknown>>('table.insert', { name, data }),
+      update: (id, data) => this._call<Record<string, unknown>>('table.update', { name, id, data }),
       delete: (id) => this._call<void>('table.delete', { name, id }),
-      upsert: (data, opts) => this._call('table.upsert', { name, data, ...opts }),
+      upsert: (data, opts) => this._call<Record<string, unknown>>('table.upsert', { name, data, ...opts }),
       count: (where?) => this._call<number>('table.count', { name, where }),
     };
   }
@@ -90,24 +105,10 @@ export class VantageBackendImpl {
   /** Called by the runtime when an event fires. Invokes all registered handlers in parallel. */
   async _dispatchEvent(event: string, payload: unknown): Promise<void> {
     const handlers = this._handlers.get(event) ?? [];
-    await Promise.all(handlers.map((h) => h(payload)));
+    await Promise.allSettled(handlers.map((h) => h(payload)));
   }
 
-  get safe(): SafePermittedVantage<readonly PluginPermission[]> {
-    const wrap = <T>(fn: () => Promise<T>): Promise<PluginResult<T>> =>
-      fn()
-        .then((data) => ({ data, error: null } as PluginResult<T>))
-        .catch((error) => ({ data: null, error } as PluginResult<T>));
 
-    return {
-      list: (resource, filter?) => wrap(() => this.list(resource as string, filter) as Promise<any>),
-      get: (resource, id) => wrap(() => this.get(resource as string, id) as Promise<any>),
-      create: (resource, data) => wrap(() => this.create(resource as string, data) as Promise<any>),
-      update: (resource, id, data) => wrap(() => this.update(resource as string, id, data) as Promise<any>),
-      delete: (resource, id) => wrap(() => this.delete(resource as string, id)),
-      action: (resource, action, payload?) => wrap(() => this.action(resource, action, payload)),
-    };
-  }
 }
 
 /**

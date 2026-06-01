@@ -17,9 +17,9 @@ export type BridgeFn = (call: BridgeCall) => Promise<BridgeResult>;
  * Used by the frontend SDK — the host page receives the message and
  * forwards it to the API, then posts the response back.
  */
-export function createPostMessageBridge(timeoutMs = 30_000): BridgeFn {
+export function createPostMessageBridge(timeoutMs = 30_000, targetOrigin = '*'): BridgeFn {
   return ({ method, payload }) =>
-    new Promise((resolve, reject) => {
+    new Promise((resolve) => {
       const id =
         typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
           ? crypto.randomUUID()
@@ -27,18 +27,24 @@ export function createPostMessageBridge(timeoutMs = 30_000): BridgeFn {
 
       const timer = setTimeout(() => {
         window.removeEventListener('message', handler);
-        reject(new Error(`[plugin-sdk] bridge call '${method}' timed out after ${timeoutMs}ms`));
+        resolve({
+          data: null,
+          error: { code: 'TIMEOUT', message: `[plugin-sdk] bridge call '${method}' timed out after ${timeoutMs}ms` },
+        });
       }, timeoutMs);
 
       function handler(event: MessageEvent) {
-        if (event.data?.type === 'bridge:response' && event.data?.id === id) {
-          clearTimeout(timer);
-          window.removeEventListener('message', handler);
-          resolve(event.data.result as BridgeResult);
-        }
+        if (
+          event.source !== window.parent ||
+          event.data?.type !== 'bridge:response' ||
+          event.data?.id !== id
+        ) return;
+        clearTimeout(timer);
+        window.removeEventListener('message', handler);
+        resolve(event.data.result as BridgeResult);
       }
 
       window.addEventListener('message', handler);
-      window.parent.postMessage({ type: 'bridge:request', id, method, payload }, '*');
+      window.parent.postMessage({ type: 'bridge:request', id, method, payload }, targetOrigin);
     });
 }
