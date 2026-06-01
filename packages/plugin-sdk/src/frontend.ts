@@ -17,6 +17,7 @@ export class VantageFrontendImpl extends VantageBackendImpl {
   private _contextResolvers: Array<(ctx: PluginContext) => void> = [];
   private _contextRejectors: Array<(err: Error) => void> = [];
   private _contextTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly _modal!: ModalNamespace;
 
   constructor() {
     super(createPostMessageBridge());
@@ -34,8 +35,15 @@ export class VantageFrontendImpl extends VantageBackendImpl {
           this._contextResolvers = [];
           this._contextRejectors = [];
         }
-      });
+      }, { once: true });
     }
+
+    this._modal = {
+      open: (opts: { title: string; content?: string }) =>
+        this._call<void>('modal.open', opts),
+      close: () =>
+        this._call<void>('modal.close', {}),
+    };
   }
 
   /**
@@ -65,31 +73,37 @@ export class VantageFrontendImpl extends VantageBackendImpl {
 
   navigate(path: string): void {
     if (typeof window !== 'undefined') {
+      if (window.parent === window) {
+        console.warn('[plugin-sdk] navigate() called outside of an iframe — no-op.');
+        return;
+      }
       window.parent.postMessage({ type: 'sdk:navigate', payload: { path } }, '*');
     }
   }
 
   get modal(): ModalNamespace {
-    return {
-      open: (opts: { title: string; content?: string }) =>
-        this._call<void>('modal.open', opts),
-      close: () =>
-        this._call<void>('modal.close', {}),
-    };
+    return this._modal;
   }
 
   /**
    * Frontend on() listens for host-dispatched events via postMessage.
    * Handlers are synchronous (host fires and forgets).
+   * Returns a cleanup function to remove the listener.
    */
-  on(event: string, handler: (payload: unknown) => void): void {
+  on(event: string, handler: (payload: unknown) => void): () => void {
+    const wrapper = (e: MessageEvent) => {
+      if (e.data?.type === 'sdk:event' && e.data?.event === event) {
+        handler(e.data.payload);
+      }
+    };
     if (typeof window !== 'undefined') {
-      window.addEventListener('message', (e: MessageEvent) => {
-        if (e.data?.type === 'sdk:event' && e.data?.event === event) {
-          handler(e.data.payload);
-        }
-      });
+      window.addEventListener('message', wrapper);
     }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('message', wrapper);
+      }
+    };
   }
 }
 
@@ -105,6 +119,7 @@ export function createPlugin<Perms extends readonly PluginPermission[]>(config: 
   const vantage = new VantageFrontendImpl();
   setVantageInstance(vantage);
   Promise.resolve(
+    // Intentional cast: PermittedVantage<Perms> type safety enforced at compile time via createPlugin signature
     config.setup(vantage as unknown as PermittedVantageFrontend<Perms>),
   ).catch((err: unknown) => {
     console.error('[plugin-sdk] setup() error:', err);

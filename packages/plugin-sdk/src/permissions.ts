@@ -118,7 +118,7 @@ export type PermittedVantageFrontend<Perms extends readonly PluginPermission[]> 
     getContext(): Promise<PluginContext>;
     navigate(path: string): void;
     modal: ModalNamespace;
-    on(event: string, handler: (payload: unknown) => void): void;
+    on(event: string, handler: (payload: unknown) => void): (() => void) | void;
   };
 
 // ── Plugin definition types ──────────────────────────────────────────────────
