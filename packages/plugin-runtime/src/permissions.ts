@@ -11,6 +11,7 @@ const METHOD_PERMISSION_MAP: Record<string, PluginPermission | null> = {
   'companies.get': 'companies:read',
   'companies.create': 'companies:write',
   'companies.update': 'companies:write',
+  'companies.delete': 'companies:write',
   'deals.list': 'deals:read',
   'deals.get': 'deals:read',
   'deals.create': 'deals:write',

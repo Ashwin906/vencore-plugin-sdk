@@ -140,6 +140,9 @@ export async function dispatchBridgeCall(
         return { data: null, error: { code: 'UNKNOWN_METHOD', message: `Unknown bridge method: ${method}` } };
     }
   } catch (e) {
+    if (e !== null && typeof e === 'object' && 'code' in e && 'message' in e) {
+      return { data: null, error: e as { code: string; message: string } };
+    }
     const message = e instanceof Error ? e.message : 'Internal bridge error';
     return { data: null, error: { code: 'INTERNAL', message } };
   }
