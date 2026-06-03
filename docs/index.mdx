@@ -7,6 +7,12 @@ The Vantage Plugin SDK is the TypeScript toolkit for building plugins that run i
 
 Use these docs when you are creating a plugin, wiring a runtime host, or checking what each SDK file is responsible for.
 
+## Manifest First
+
+Every plugin should include a `plugin.json` file. The manifest declares what the plugin is, what it can access, what UI it contributes, what settings it exposes, and which backend/client entry files the runtime should load.
+
+Start with [plugin.json](./plugin-json.mdx) when creating a new plugin.
+
 ## Install Shape
 
 This repo is a pnpm workspace. The SDK package depends on the types package through `workspace:*`.
@@ -104,6 +110,7 @@ Package scripts:
 ## Docs Map
 
 - [Type reference](./types.mdx): every exported type from `@vantage/plugin-types`.
+- [plugin.json](./plugin-json.mdx): manifest schema, examples, permissions, surfaces, settings, hooks, migrations, and build entries.
 - [Backend SDK](./backend.mdx): backend implementation, safe APIs, table API, hooks, bus, cron, files, storage, HTTP, settings, users, workspace, and notifications.
 - [Frontend SDK](./frontend.mdx): frontend implementation, React entry point, surface registry, DOM events, bridge reads, and singleton store.
 - [Bridge and permissions](./bridge-and-permissions.mdx): bridge protocol, iframe postMessage bridge, permission namespace types.
