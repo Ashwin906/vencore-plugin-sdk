@@ -98,13 +98,13 @@ describe('VantageBackend.storage', () => {
   });
 });
 
-describe('VantageBackend.on + _dispatchEvent', () => {
+describe('VantageBackend.on + _dispatchHook', () => {
   it('registers and dispatches event handlers', async () => {
     const bridge = makeBridge([]);
     const v = createVantageBackend(bridge);
     const handler = vi.fn();
     v.on('contact.created', handler);
-    await v._dispatchEvent('contact.created', { id: 'c1' });
+    await v._dispatchHook('contact.created', { id: 'c1' });
     expect(handler).toHaveBeenCalledWith({ id: 'c1' });
   });
 
@@ -115,7 +115,7 @@ describe('VantageBackend.on + _dispatchEvent', () => {
     const h2 = vi.fn();
     v.on('deal.created', h1);
     v.on('deal.created', h2);
-    await v._dispatchEvent('deal.created', { id: 'd1' });
+    await v._dispatchHook('deal.created', { id: 'd1' });
     expect(h1).toHaveBeenCalledWith({ id: 'd1' });
     expect(h2).toHaveBeenCalledWith({ id: 'd1' });
   });
@@ -125,7 +125,7 @@ describe('VantageBackend.on + _dispatchEvent', () => {
     const v = createVantageBackend(bridge);
     const handler = vi.fn();
     v.on('contact.created', handler);
-    await v._dispatchEvent('deal.created', { id: 'd1' });
+    await v._dispatchHook('deal.created', { id: 'd1' });
     expect(handler).not.toHaveBeenCalled();
   });
 });

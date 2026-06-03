@@ -1,16 +1,12 @@
+// TODO: update in Task 12 (frontend SDK) — PermittedVantageFrontend and
+// FrontendPluginDefinition will be reintroduced as part of the frontend rewrite.
 import type {
-  PluginPermission,
-  PluginManifest,
   PluginContext,
 } from '@vantage/plugin-types';
 import { VantageBackendImpl } from './backend';
 import { createPostMessageBridge } from './bridge';
 import { setVantageInstance } from './_store';
-import type {
-  PermittedVantageFrontend,
-  ModalNamespace,
-  FrontendPluginDefinition,
-} from './permissions';
+import type { ModalNamespace } from './permissions';
 
 export class VantageFrontendImpl extends VantageBackendImpl {
   private _context: PluginContext | null = null;
@@ -111,17 +107,14 @@ export class VantageFrontendImpl extends VantageBackendImpl {
  * createPlugin (frontend) — runs in the plugin iframe on load.
  * Creates the vantage instance, registers it as the singleton for hooks,
  * then calls setup(). Side-effectful by design.
+ * TODO: update in Task 12 (frontend SDK) — restore typed setup signature.
  */
-export function createPlugin<Perms extends readonly PluginPermission[]>(config: {
-  manifest: PluginManifest<Perms>;
-  setup(vantage: PermittedVantageFrontend<Perms>): void | Promise<void>;
+export function createPlugin(config: {
+  setup(vantage: VantageFrontendImpl): void | Promise<void>;
 }): void {
   const vantage = new VantageFrontendImpl();
   setVantageInstance(vantage);
-  Promise.resolve(
-    // Intentional cast: PermittedVantage<Perms> type safety enforced at compile time via createPlugin signature
-    config.setup(vantage as unknown as PermittedVantageFrontend<Perms>),
-  ).catch((err: unknown) => {
+  Promise.resolve(config.setup(vantage)).catch((err: unknown) => {
     console.error('[plugin-sdk] setup() error:', err);
   });
 }

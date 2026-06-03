@@ -1,43 +1,96 @@
 import type {
-  PluginPermission,
-  PluginManifest,
   PluginResult,
   PluginTableClient,
   HttpFetchOptions,
   HttpResponse,
+  VantageBackendAPI,
+  VantageSettingsNamespace,
+  VantageBusNamespace,
+  VantageFilesNamespace,
+  VantageCronNamespace,
+  VantagePermissionsNamespace,
+  VantageUser,
+  VantageWorkspace,
+  VantageFileRecord,
+  VantageNotifyOptions,
+  PluginDefinition,
+  PluginHookEvent,
 } from '@vantage/plugin-types';
 import type { BridgeFn, BridgeResult } from './bridge';
-import type {
-  PermittedVantage,
-  SafePermittedVantage,
-  StorageNamespace,
-  StorageReadNamespace,
-  HttpNamespace,
-  PluginDefinition,
-} from './permissions';
 
-export class VantageBackendImpl {
-  protected _bridge: BridgeFn;
-  private _handlers = new Map<string, Array<(p: unknown) => Promise<void> | void>>();
-  readonly storage: StorageNamespace;
-  readonly http: HttpNamespace;
-  readonly safe: SafePermittedVantage<readonly PluginPermission[]>;
+type CronEntry = { schedule: string; name: string; handler: () => Promise<void> | void };
+
+export class VantageBackendImpl implements VantageBackendAPI {
+  private _bridge: BridgeFn;
+  private _hookHandlers = new Map<string, Array<(p: unknown) => Promise<void> | void>>();
+  private _cronJobs: CronEntry[] = [];
+
+  readonly storage: VantageBackendAPI['storage'];
+  readonly http: VantageBackendAPI['http'];
+  readonly settings: VantageSettingsNamespace;
+  readonly bus: VantageBusNamespace;
+  readonly files: VantageFilesNamespace;
+  readonly cron: VantageCronNamespace;
+  readonly permissions: VantagePermissionsNamespace;
+  readonly user: { get(): Promise<VantageUser> };
+  readonly workspace: { get(): Promise<VantageWorkspace> };
+  readonly safe: VantageBackendAPI['safe'];
 
   constructor(bridge: BridgeFn) {
     this._bridge = bridge;
 
     this.storage = {
-      get: <T = unknown>(key: string) =>
-        this._call<T | null>('storage.get', { key }),
-      set: (key: string, value: unknown) =>
-        this._call<void>('storage.set', { key, value }),
-      delete: (key: string) =>
-        this._call<void>('storage.delete', { key }),
+      get: <T = unknown>(key: string) => this._call<T | null>('storage.get', { key }),
+      set: (key: string, value: unknown) => this._call<void>('storage.set', { key, value }),
+      delete: (key: string) => this._call<void>('storage.delete', { key }),
     };
 
     this.http = {
       fetch: (url: string, options?: HttpFetchOptions) =>
-        this._call<HttpResponse>('http.fetch', { url, options }),
+        this._call<HttpResponse>('http.fetch', { url, ...options }),
+    };
+
+    this.settings = {
+      get: <T = unknown>(key: string) => this._call<T | null>('settings.get', { key }),
+      set: (key: string, value: unknown) => this._call<void>('settings.set', { key, value }),
+    };
+
+    this.bus = {
+      emit: (event: string, payload: unknown) =>
+        this._call<void>('bus.emit', { event, payload }),
+      on: (event: string, handler: (payload: unknown) => Promise<void> | void) => {
+        const existing = this._hookHandlers.get(`bus:${event}`) ?? [];
+        this._hookHandlers.set(`bus:${event}`, [...existing, handler]);
+      },
+    };
+
+    this.files = {
+      upload: (buffer: Uint8Array, opts: { name: string; mime: string }) =>
+        this._call<VantageFileRecord>('files.upload', {
+          buffer: Buffer.from(buffer).toString('base64'),
+          ...opts,
+        }),
+      getUrl: (fileId: string) => this._call<string>('files.getUrl', { fileId }),
+      delete: (fileId: string) => this._call<void>('files.delete', { fileId }),
+    };
+
+    this.cron = {
+      register: (schedule: string, name: string, handler: () => Promise<void> | void) => {
+        this._cronJobs.push({ schedule, name, handler });
+      },
+    };
+
+    this.permissions = {
+      check: (userId: string, permissionKey: string) =>
+        this._call<boolean>('permissions.check', { userId, permissionKey }),
+    };
+
+    this.user = {
+      get: () => this._call<VantageUser>('user.get', {}),
+    };
+
+    this.workspace = {
+      get: () => this._call<VantageWorkspace>('workspace.get', {}),
     };
 
     const wrap = <T>(fn: () => Promise<T>): Promise<PluginResult<T>> =>
@@ -46,11 +99,11 @@ export class VantageBackendImpl {
         .catch((error) => ({ data: null, error } as PluginResult<T>));
 
     this.safe = {
-      list: (resource, filter?) => wrap(() => this.list(resource as string, filter) as Promise<any>),
-      get: (resource, id) => wrap(() => this.get(resource as string, id) as Promise<any>),
-      create: (resource, data) => wrap(() => this.create(resource as string, data) as Promise<any>),
-      update: (resource, id, data) => wrap(() => this.update(resource as string, id, data) as Promise<any>),
-      delete: (resource, id) => wrap(() => this.delete(resource as string, id)),
+      list: (resource, filter?) => wrap(() => this.list(resource, filter)),
+      get: (resource, id) => wrap(() => this.get(resource, id)),
+      create: (resource, data) => wrap(() => this.create(resource, data)),
+      update: (resource, id, data) => wrap(() => this.update(resource, id, data)),
+      delete: (resource, id) => wrap(() => this.delete(resource, id)),
       action: (resource, action, payload?) => wrap(() => this.action(resource, action, payload)),
     };
   }
@@ -97,36 +150,43 @@ export class VantageBackendImpl {
     };
   }
 
-  on(event: string, handler: (payload: unknown) => Promise<void> | void): void {
-    const existing = this._handlers.get(event) ?? [];
-    this._handlers.set(event, [...existing, handler]);
+  on(event: PluginHookEvent, handler: (payload: unknown) => Promise<void> | void): void {
+    const existing = this._hookHandlers.get(event as string) ?? [];
+    this._hookHandlers.set(event as string, [...existing, handler]);
   }
 
-  /** Called by the runtime when an event fires. Invokes all registered handlers in parallel. */
-  async _dispatchEvent(event: string, payload: unknown): Promise<void> {
-    const handlers = this._handlers.get(event) ?? [];
+  notify(opts: VantageNotifyOptions): Promise<void> {
+    return this._call<void>('notify', opts);
+  }
+
+  /** Called by runtime when a system event fires. */
+  async _dispatchHook(event: string, payload: unknown): Promise<void> {
+    const handlers = this._hookHandlers.get(event) ?? [];
     await Promise.allSettled(handlers.map((h) => h(payload)));
   }
 
+  /** Called by runtime when a bus event fires. */
+  async _dispatchBusEvent(event: string, payload: unknown): Promise<void> {
+    const handlers = this._hookHandlers.get(`bus:${event}`) ?? [];
+    await Promise.allSettled(handlers.map((h) => h(payload)));
+  }
 
+  /** Called by runtime to retrieve registered cron jobs. */
+  getCronJobs(): CronEntry[] {
+    return this._cronJobs;
+  }
 }
 
-/**
- * createVantageBackend — factory for the runtime to instantiate a vantage object.
- * The runtime provides a BridgeFn scoped to the current plugin + workspace.
- */
 export function createVantageBackend(bridge: BridgeFn): VantageBackendImpl {
   return new VantageBackendImpl(bridge);
 }
 
 /**
- * createPlugin (backend) — validates manifest types at compile time.
- * Returns a PluginDefinition the runtime imports and calls setup() on.
- * No side effects on call.
+ * createPlugin — entry point for plugin backend bundles.
+ * No manifest parameter; plugin.json is the source of truth.
  */
-export function createPlugin<Perms extends readonly PluginPermission[]>(config: {
-  manifest: PluginManifest<Perms>;
-  setup(vantage: PermittedVantage<Perms>): void | Promise<void>;
-}): PluginDefinition<Perms> {
+export function createPlugin(config: {
+  setup(vantage: VantageBackendAPI): void | Promise<void>;
+}): PluginDefinition {
   return config;
 }

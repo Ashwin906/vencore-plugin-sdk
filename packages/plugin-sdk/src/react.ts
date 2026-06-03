@@ -3,14 +3,18 @@ import {
   useEffect,
   useCallback,
 } from 'react';
+// TODO: update in Task 12 (frontend SDK) — ResourceRow/ResourceInput/ResourceFilter
+// were removed from plugin-types in Task 1. Hooks will be rewritten with the new
+// generic-free API.
 import type {
   PluginContext,
-  ResourceRow,
-  ResourceInput,
-  ResourceFilter,
   PluginError,
   KnownResource,
 } from '@vantage/plugin-types';
+
+type ResourceRow<_R extends KnownResource> = Record<string, unknown>;
+type ResourceInput<_R extends KnownResource> = Record<string, unknown>;
+type ResourceFilter<_R extends KnownResource> = Record<string, unknown> | undefined;
 import { getVantageInstance } from './_store';
 
 // ── usePluginContext — suspends until sdk:init received ───────────────────────
