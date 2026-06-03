@@ -1,9 +1,5 @@
-// ── Domain models (plugin-visible shape — no internal DB fields) ─────────────
+// ── Domain models (unchanged) ────────────────────────────────────────────────
 
-/**
- * Fields for creating a contact.
- * `owner_id` is omitted — the bridge injects the calling user's ID automatically.
- */
 export interface ContactInput {
   name: string;
   email: string;
@@ -32,10 +28,6 @@ export interface ContactFilter {
   offset?: number;
 }
 
-/**
- * Fields for creating a deal.
- * `owner_id` is omitted — the bridge injects the calling user's ID automatically.
- */
 export interface DealInput {
   name: string;
   value?: number;
@@ -95,10 +87,6 @@ export interface CompanyFilter {
   offset?: number;
 }
 
-/**
- * Fields for creating a task.
- * `assignee_id` defaults to the calling user when omitted; the bridge injects it.
- */
 export interface TaskInput {
   title: string;
   due_date?: string;
@@ -135,7 +123,6 @@ export interface ActivityInput {
   deal_id?: string;
 }
 
-/** append-only — no updated_at */
 export interface ActivityRecord {
   id: string;
   type: 'email' | 'call' | 'note' | 'meeting' | 'deal_change' | 'infra_alert';
@@ -158,7 +145,6 @@ export interface Server {
   id: string;
   name: string;
   region: string | null;
-  /** sensitive: may be null in restricted contexts */
   ip_address: string | null;
   status: 'online' | 'degraded' | 'offline' | 'stopped';
   cpu_pct: number | null;
@@ -189,14 +175,14 @@ export interface WebsiteFilter {
   limit?: number;
 }
 
-// ── Context (frontend only) ──────────────────────────────────────────────────
+// ── Context ──────────────────────────────────────────────────────────────────
 
 export interface PluginContext {
   workspace_id: string;
   user_id: string;
-  page: 'contact-detail' | 'deal-detail' | 'dashboard-widget' | 'full-page' | string;
+  page: string;
   record_id: string | null;
-  record_type: 'contact' | 'deal' | null;
+  record_type: string | null;
 }
 
 // ── Error + Result ───────────────────────────────────────────────────────────
@@ -216,7 +202,6 @@ export interface HttpFetchOptions {
   method?: string;
   headers?: Record<string, string>;
   body?: string;
-  /** Timeout in milliseconds */
   timeout?: number;
 }
 
@@ -227,7 +212,7 @@ export interface HttpResponse {
   ok: boolean;
 }
 
-// ── Plugin table schema (manifest) ──────────────────────────────────────────
+// ── Plugin table schema ──────────────────────────────────────────────────────
 
 export type PluginColumnType =
   | 'uuid' | 'text' | 'integer' | 'bigint' | 'boolean'
@@ -239,7 +224,6 @@ export interface PluginColumnDef {
   nullable?: boolean;
   primary?: boolean;
   unique?: boolean;
-  /** Raw SQL expression, e.g. "gen_random_uuid()" or "now()" */
   default?: string;
 }
 
@@ -261,30 +245,19 @@ export interface PluginMigration {
   down?: string;
 }
 
-// ── Resource type map — typed overloads per resource string ─────────────────
+// ── Bridge types ─────────────────────────────────────────────────────────────
 
-export type ResourceTypeMap = {
-  contacts: { row: Contact; input: ContactInput; filter: ContactFilter };
-  companies: { row: Company; input: CompanyInput; filter: CompanyFilter };
-  deals: { row: Deal; input: DealInput; filter: DealFilter };
-  tasks: { row: Task; input: TaskInput; filter: TaskFilter };
-  activity: { row: ActivityRecord; input: ActivityInput; filter: ActivityFilter };
-  servers: { row: Server; input: never; filter: ServerFilter };
-  websites: { row: Website; input: never; filter: WebsiteFilter };
-};
+export interface BridgeCall {
+  method: string;
+  payload: unknown;
+}
 
-export type KnownResource = keyof ResourceTypeMap;
+export interface BridgeResult {
+  data: unknown;
+  error: PluginError | null;
+}
 
-export type ResourceRow<R extends string> =
-  R extends KnownResource ? ResourceTypeMap[R]['row'] : unknown;
-
-export type ResourceInput<R extends string> =
-  R extends KnownResource ? ResourceTypeMap[R]['input'] : Record<string, unknown>;
-
-export type ResourceFilter<R extends string> =
-  R extends KnownResource ? ResourceTypeMap[R]['filter'] : Record<string, unknown>;
-
-// ── PluginTableClient — plugin-owned table CRUD ──────────────────────────────
+// ── PluginTableClient ────────────────────────────────────────────────────────
 
 export interface PluginTableClient {
   list(opts?: {
@@ -294,19 +267,15 @@ export interface PluginTableClient {
     limit?: number;
     offset?: number;
   }): Promise<Record<string, unknown>[]>;
-  /** @throws PluginError with code NOT_FOUND if row does not exist */
   get(id: string): Promise<Record<string, unknown>>;
   insert(data: Record<string, unknown>): Promise<Record<string, unknown>>;
   update(id: string, data: Record<string, unknown>): Promise<Record<string, unknown>>;
   delete(id: string): Promise<void>;
-  upsert(
-    data: Record<string, unknown>,
-    opts: { on_conflict: string },
-  ): Promise<Record<string, unknown>>;
+  upsert(data: Record<string, unknown>, opts: { on_conflict: string }): Promise<Record<string, unknown>>;
   count(where?: Record<string, unknown>): Promise<number>;
 }
 
-// ── Permissions ──────────────────────────────────────────────────────────────
+// ── Bridge data-access permissions (unchanged union) ─────────────────────────
 
 export type PluginPermission =
   | 'contacts:read' | 'contacts:write'
@@ -327,20 +296,218 @@ export type PluginHookEvent =
   | 'task.created' | 'task.updated'
   | (string & {});
 
-// ── Plugin manifest ──────────────────────────────────────────────────────────
+// ── Plugin user-facing permission definition (NEW) ───────────────────────────
 
-export interface PluginManifest<
-  Perms extends readonly PluginPermission[] = readonly PluginPermission[],
-> {
+export interface PluginPermissionDef {
+  key: string;
+  label: string;
+  defaultRoles: ('admin' | 'member')[];
+}
+
+// ── Plugin surfaces (NEW) ────────────────────────────────────────────────────
+
+export interface PluginNavItem {
+  label: string;
+  path: string;
+  icon?: string;
+  group?: 'crm' | 'infra' | 'general';
+}
+
+export interface PluginPageDef {
+  path: string;
+  title: string;
+}
+
+export interface PluginWidgetDef {
+  id: string;
+  label: string;
+}
+
+export interface PluginPanelDef {
+  record_type: string;
+  id: string;
+  label: string;
+}
+
+export interface PluginSurfaces {
+  nav?: PluginNavItem[];
+  pages?: PluginPageDef[];
+  widgets?: PluginWidgetDef[];
+  panels?: PluginPanelDef[];
+}
+
+// ── Plugin settings schema (NEW) ─────────────────────────────────────────────
+
+interface PluginSettingsFieldBase {
+  key: string;
+  label: string;
+  secret?: boolean;
+}
+
+export interface PluginSettingsTextField extends PluginSettingsFieldBase {
+  type: 'text';
+  default?: string;
+}
+
+export interface PluginSettingsBooleanField extends PluginSettingsFieldBase {
+  type: 'boolean';
+  default?: boolean;
+}
+
+export interface PluginSettingsNumberField extends PluginSettingsFieldBase {
+  type: 'number';
+  default?: number;
+  min?: number;
+  max?: number;
+}
+
+export interface PluginSettingsSelectField extends PluginSettingsFieldBase {
+  type: 'select';
+  options: string[];
+  default?: string;
+}
+
+export type PluginSettingsField =
+  | PluginSettingsTextField
+  | PluginSettingsBooleanField
+  | PluginSettingsNumberField
+  | PluginSettingsSelectField;
+
+export interface PluginBuildConfig {
+  server?: string;
+  client?: string;
+}
+
+// ── SDK namespace types (NEW) ────────────────────────────────────────────────
+
+export interface VantageUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'member';
+}
+
+export interface VantageWorkspace {
+  id: string;
+  name: string;
+  plan: string;
+}
+
+export interface VantageFileRecord {
+  id: string;
+  name: string;
+  mime: string;
+  size: number;
+  url: string;
+}
+
+export interface VantageNotifyOptions {
+  title: string;
+  body?: string;
+  type?: 'info' | 'success' | 'warning' | 'error';
+}
+
+export interface VantageSettingsNamespace {
+  get<T = unknown>(key: string): Promise<T | null>;
+  set(key: string, value: unknown): Promise<void>;
+}
+
+export interface VantageBusNamespace {
+  emit(event: string, payload: unknown): Promise<void>;
+  on(event: string, handler: (payload: unknown) => Promise<void> | void): void;
+}
+
+export interface VantageFilesNamespace {
+  upload(buffer: Uint8Array, opts: { name: string; mime: string }): Promise<VantageFileRecord>;
+  getUrl(fileId: string): Promise<string>;
+  delete(fileId: string): Promise<void>;
+}
+
+export interface VantageCronNamespace {
+  register(schedule: string, name: string, handler: () => Promise<void> | void): void;
+}
+
+export interface VantagePermissionsNamespace {
+  check(userId: string, permissionKey: string): Promise<boolean>;
+}
+
+// ── PluginManifest — updated (non-generic) ───────────────────────────────────
+
+export interface PluginManifest {
   id: string;
   name: string;
   version: string;
   description?: string;
-  permissions: Perms;
+  icon?: string;
+  author?: string;
+  homepage?: string;
+  /** User-facing permissions shown in Users & Groups settings. */
+  permissions?: PluginPermissionDef[];
+  /** Bridge data-access permissions — controls CRM/infra data the plugin can read/write. */
+  data_access?: PluginPermission[];
   tables?: PluginTableDef[];
   migrations?: PluginMigration[];
   hooks?: PluginHookEvent[];
-  ui?: {
-    widgets?: Array<'contact-detail' | 'deal-detail' | 'dashboard-widget' | 'full-page'>;
+  /** Events this plugin emits on the bus. Declarative — for discovery. */
+  emits?: string[];
+  surfaces?: PluginSurfaces;
+  settings_schema?: PluginSettingsField[];
+  build?: PluginBuildConfig;
+}
+
+// ── VantageBackendAPI — full backend SDK surface ─────────────────────────────
+
+export interface VantageBackendAPI {
+  list(resource: string, filter?: unknown): Promise<unknown[]>;
+  get(resource: string, id: string): Promise<unknown>;
+  create(resource: string, data: unknown): Promise<unknown>;
+  update(resource: string, id: string, data: unknown): Promise<unknown>;
+  delete(resource: string, id: string): Promise<void>;
+  action<T = unknown>(resource: string, action: string, payload?: unknown): Promise<T>;
+  table(name: string): PluginTableClient;
+  on(event: PluginHookEvent, handler: (payload: unknown) => Promise<void> | void): void;
+  storage: {
+    get<T = unknown>(key: string): Promise<T | null>;
+    set(key: string, value: unknown): Promise<void>;
+    delete(key: string): Promise<void>;
+  };
+  http: {
+    fetch(url: string, options?: HttpFetchOptions): Promise<HttpResponse>;
+  };
+  settings: VantageSettingsNamespace;
+  bus: VantageBusNamespace;
+  user: { get(): Promise<VantageUser> };
+  workspace: { get(): Promise<VantageWorkspace> };
+  files: VantageFilesNamespace;
+  notify(opts: VantageNotifyOptions): Promise<void>;
+  cron: VantageCronNamespace;
+  permissions: VantagePermissionsNamespace;
+  safe: {
+    list(resource: string, filter?: unknown): Promise<PluginResult<unknown[]>>;
+    get(resource: string, id: string): Promise<PluginResult<unknown>>;
+    create(resource: string, data: unknown): Promise<PluginResult<unknown>>;
+    update(resource: string, id: string, data: unknown): Promise<PluginResult<unknown>>;
+    delete(resource: string, id: string): Promise<PluginResult<void>>;
+    action<T = unknown>(resource: string, action: string, payload?: unknown): Promise<PluginResult<T>>;
   };
 }
+
+// ── PluginDefinition — no longer carries Perms generic ───────────────────────
+
+export interface PluginDefinition {
+  setup(vantage: VantageBackendAPI): void | Promise<void>;
+}
+
+// ── Resource type map (kept for reference) ───────────────────────────────────
+
+export type ResourceTypeMap = {
+  contacts: { row: Contact; input: ContactInput; filter: ContactFilter };
+  companies: { row: Company; input: CompanyInput; filter: CompanyFilter };
+  deals: { row: Deal; input: DealInput; filter: DealFilter };
+  tasks: { row: Task; input: TaskInput; filter: TaskFilter };
+  activity: { row: ActivityRecord; input: ActivityInput; filter: ActivityFilter };
+  servers: { row: Server; input: never; filter: ServerFilter };
+  websites: { row: Website; input: never; filter: WebsiteFilter };
+};
+
+export type KnownResource = keyof ResourceTypeMap;
