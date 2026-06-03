@@ -5,18 +5,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": {
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./frontend": {
-      "require": "./dist/frontend.js",
-      "types": "./dist/frontend.d.ts"
-    },
-    "./react": {
-      "require": "./dist/react.js",
-      "types": "./dist/react.d.ts"
-    }
+    ".": "./src/index.ts",
+    "./react": "./src/react.ts"
   },
   "scripts": {
     "build": "tsc",

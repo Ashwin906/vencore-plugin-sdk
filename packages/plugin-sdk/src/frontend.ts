@@ -1,120 +1,143 @@
-// TODO: update in Task 12 (frontend SDK) — PermittedVantageFrontend and
-// FrontendPluginDefinition will be reintroduced as part of the frontend rewrite.
-import type {
-  PluginContext,
-} from '@vantage/plugin-types';
-import { VantageBackendImpl } from './backend';
-import { createPostMessageBridge } from './bridge';
-import { setVantageInstance } from './_store';
-import type { ModalNamespace } from './permissions';
+import type { FrontendSurfaceRegistry, VantageFrontendAPI, AnyComponent } from './react';
+import type { BridgeFn } from './bridge';
+import type { PluginContext } from '@vantage/plugin-types';
 
-export class VantageFrontendImpl extends VantageBackendImpl {
-  private _context: PluginContext | null = null;
-  private _contextResolvers: Array<(ctx: PluginContext) => void> = [];
-  private _contextRejectors: Array<(err: Error) => void> = [];
-  private _contextTimer: ReturnType<typeof setTimeout> | null = null;
-  private readonly _modal!: ModalNamespace;
+export class VantageFrontendImpl implements VantageFrontendAPI {
+  private _bridge: BridgeFn;
+  private _registry: FrontendSurfaceRegistry;
+  private _busHandlers = new Map<string, Set<(p: unknown) => void>>();
 
-  constructor() {
-    super(createPostMessageBridge());
+  readonly settings: VantageFrontendAPI['settings'];
+  readonly user: VantageFrontendAPI['user'];
+  readonly workspace: VantageFrontendAPI['workspace'];
+  readonly bus: VantageFrontendAPI['bus'];
+  readonly modal: VantageFrontendAPI['modal'];
+  readonly search: VantageFrontendAPI['search'];
+  readonly commands: VantageFrontendAPI['commands'];
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('message', (event: MessageEvent) => {
-        if (event.data?.type === 'sdk:init' && event.data?.payload?.context) {
-          const ctx = event.data.payload.context as PluginContext;
-          this._context = ctx;
-          if (this._contextTimer !== null) {
-            clearTimeout(this._contextTimer);
-            this._contextTimer = null;
-          }
-          for (const resolve of this._contextResolvers) resolve(ctx);
-          this._contextResolvers = [];
-          this._contextRejectors = [];
+  constructor(bridge: BridgeFn, registry: FrontendSurfaceRegistry) {
+    this._bridge = bridge;
+    this._registry = registry;
+
+    this.settings = {
+      get: async <T = unknown>(key: string) => {
+        const r = await this._bridge({ method: 'settings.get', payload: { key } });
+        if (r.error) return null;
+        return r.data as T | null;
+      },
+    };
+
+    this.user = {
+      get: async () => {
+        const r = await this._bridge({ method: 'user.get', payload: {} });
+        if (r.error) throw r.error;
+        return r.data as any;
+      },
+    };
+
+    this.workspace = {
+      get: async () => {
+        const r = await this._bridge({ method: 'workspace.get', payload: {} });
+        if (r.error) throw r.error;
+        return r.data as any;
+      },
+    };
+
+    this.bus = {
+      on: (event: string, handler: (p: unknown) => void) => {
+        const set = this._busHandlers.get(event) ?? new Set<(p: unknown) => void>();
+        set.add(handler);
+        this._busHandlers.set(event, set);
+        return () => set.delete(handler);
+      },
+    };
+
+    this.modal = {
+      open: (opts) => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('vantage:modal:open', { detail: opts }));
         }
-      }, { once: true });
-    }
+      },
+      close: () => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('vantage:modal:close'));
+        }
+      },
+    };
 
-    this._modal = {
-      open: (opts: { title: string; content?: string }) =>
-        this._call<void>('modal.open', opts),
-      close: () =>
-        this._call<void>('modal.close', {}),
+    this.search = {
+      register: (handler) => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('vantage:search:register', { detail: handler }));
+        }
+      },
+    };
+
+    this.commands = {
+      register: (label, handler) => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('vantage:commands:register', { detail: { label, handler } }));
+        }
+      },
     };
   }
 
-  /**
-   * Resolves when the host sends sdk:init with a PluginContext.
-   * Rejects after 3 seconds with a clear error message.
-   */
-  getContext(): Promise<PluginContext> {
-    if (this._context) return Promise.resolve(this._context);
+  registerPage(path: string, component: AnyComponent): void {
+    this._registry.pages.set(path, component);
+  }
 
-    return new Promise<PluginContext>((resolve, reject) => {
-      this._contextResolvers.push(resolve);
-      this._contextRejectors.push(reject);
+  registerWidget(id: string, component: AnyComponent): void {
+    this._registry.widgets.set(id, component);
+  }
 
-      if (this._contextTimer === null) {
-        this._contextTimer = setTimeout(() => {
-          const err = new Error(
-            '[plugin-sdk] sdk:init timeout — PluginContext not received within 3000ms. ' +
-            'Check that the host sent { type: "sdk:init", payload: { context } } after iframe load.',
-          );
-          for (const reject of this._contextRejectors) reject(err);
-          this._contextResolvers = [];
-          this._contextRejectors = [];
-        }, 3000);
-      }
-    });
+  registerPanel(recordType: string, id: string, component: AnyComponent): void {
+    this._registry.panels.set(`${recordType}:${id}`, { recordType, id, label: id, component });
   }
 
   navigate(path: string): void {
     if (typeof window !== 'undefined') {
-      if (window.parent === window) {
-        console.warn('[plugin-sdk] navigate() called outside of an iframe — no-op.');
-        return;
-      }
-      window.parent.postMessage({ type: 'sdk:navigate', payload: { path } }, '*');
+      window.dispatchEvent(new CustomEvent('vantage:navigate', { detail: { path } }));
     }
   }
 
-  get modal(): ModalNamespace {
-    return this._modal;
-  }
-
-  /**
-   * Frontend on() listens for host-dispatched events via postMessage.
-   * Handlers are synchronous (host fires and forgets).
-   * Returns a cleanup function to remove the listener.
-   */
-  on(event: string, handler: (payload: unknown) => void): () => void {
-    const wrapper = (e: MessageEvent) => {
-      if (e.data?.type === 'sdk:event' && e.data?.event === event) {
-        handler(e.data.payload);
-      }
-    };
+  toast(message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info'): void {
     if (typeof window !== 'undefined') {
-      window.addEventListener('message', wrapper);
+      window.dispatchEvent(new CustomEvent('vantage:toast', { detail: { message, type } }));
     }
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('message', wrapper);
-      }
+  }
+
+  async getContext(): Promise<PluginContext> {
+    const r = await this._bridge({ method: 'context.get', payload: {} });
+    if (r.error) throw r.error;
+    return r.data as PluginContext;
+  }
+
+  async list(resource: string, filter?: unknown): Promise<unknown[]> {
+    const r = await this._bridge({ method: `${resource}.list`, payload: { filter } });
+    if (r.error) throw r.error;
+    return r.data as unknown[];
+  }
+
+  async get(resource: string, id: string): Promise<unknown> {
+    const r = await this._bridge({ method: `${resource}.get`, payload: { id } });
+    if (r.error) throw r.error;
+    return r.data;
+  }
+
+  table(name: string) {
+    return {
+      list: async (opts?: { where?: Record<string, unknown>; limit?: number; offset?: number }) => {
+        const r = await this._bridge({ method: 'table.list', payload: { name, ...opts } });
+        if (r.error) throw r.error;
+        return r.data as Record<string, unknown>[];
+      },
     };
   }
-}
 
-/**
- * createPlugin (frontend) — runs in the plugin iframe on load.
- * Creates the vantage instance, registers it as the singleton for hooks,
- * then calls setup(). Side-effectful by design.
- * TODO: update in Task 12 (frontend SDK) — restore typed setup signature.
- */
-export function createPlugin(config: {
-  setup(vantage: VantageFrontendImpl): void | Promise<void>;
-}): void {
-  const vantage = new VantageFrontendImpl();
-  setVantageInstance(vantage);
-  Promise.resolve(config.setup(vantage)).catch((err: unknown) => {
-    console.error('[plugin-sdk] setup() error:', err);
-  });
+  /** Called by PluginRuntimeContext when a bus event arrives. */
+  _dispatchBusEvent(event: string, payload: unknown): void {
+    const handlers = this._busHandlers.get(event);
+    if (!handlers) return;
+    handlers.forEach((h) => h(payload));
+  }
 }

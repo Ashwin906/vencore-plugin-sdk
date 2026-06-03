@@ -1,99 +1,104 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useList, useGet, useCreate, useDelete, useAction, usePluginTable } from '../react';
-import * as store from '../_store';
-import type { VantageFrontendImpl } from '../frontend';
+import { describe, it, expect, vi } from 'vitest';
+import { createFrontendPlugin } from '../react';
+import { VantageFrontendImpl } from '../frontend';
+import type { BridgeFn } from '../bridge';
+import type { FrontendSurfaceRegistry } from '../react';
 
-function makeVantage(overrides: Partial<VantageFrontendImpl> = {}): VantageFrontendImpl {
-  return {
-    list: vi.fn().mockResolvedValue([{ id: '1' }]),
-    get: vi.fn().mockResolvedValue({ id: '1' }),
-    create: vi.fn().mockResolvedValue({ id: 'new' }),
-    update: vi.fn().mockResolvedValue({ id: '1' }),
-    delete: vi.fn().mockResolvedValue(undefined),
-    action: vi.fn().mockResolvedValue({ ok: true }),
-    table: vi.fn().mockReturnValue({
-      list: vi.fn().mockResolvedValue([{ id: 'r1' }]),
-    }),
-    storage: {} as any,
-    http: {} as any,
-    safe: {} as any,
-    on: vi.fn(),
-    _dispatchEvent: vi.fn(),
-    ...overrides,
-  } as unknown as VantageFrontendImpl;
+function makeBridge(data: unknown = null): BridgeFn {
+  return vi.fn().mockResolvedValue({ data, error: null });
 }
 
-beforeEach(() => {
-  vi.spyOn(store, 'getVantageInstance').mockReturnValue(makeVantage());
-});
+function makeRegistry(): FrontendSurfaceRegistry {
+  return {
+    pages: new Map(),
+    widgets: new Map(),
+    panels: new Map(),
+  };
+}
 
-describe('useList', () => {
-  it('fetches on mount and returns data', async () => {
-    const { result } = renderHook(() => useList('contacts'));
-    expect(result.current.loading).toBe(true);
-    await act(async () => {});
-    expect(result.current.loading).toBe(false);
-    expect(result.current.data).toEqual([{ id: '1' }]);
-    expect(result.current.error).toBeNull();
+describe('createFrontendPlugin', () => {
+  it('returns the config object unchanged', () => {
+    const setup = vi.fn();
+    const plugin = createFrontendPlugin({ setup });
+    expect(plugin.setup).toBe(setup);
   });
 
-  it('skips fetch when opts.skip is true', () => {
-    const { result } = renderHook(() => useList('contacts', undefined, { skip: true }));
-    expect(result.current.loading).toBe(false);
-    expect(store.getVantageInstance().list).not.toHaveBeenCalled();
-  });
-});
-
-describe('useGet', () => {
-  it('fetches when id is provided', async () => {
-    const { result } = renderHook(() => useGet('contacts', 'abc'));
-    await act(async () => {});
-    expect(result.current.data).toEqual({ id: '1' });
-  });
-
-  it('skips fetch when id is null', () => {
-    const { result } = renderHook(() => useGet('contacts', null));
-    expect(result.current.loading).toBe(false);
-    expect(store.getVantageInstance().get).not.toHaveBeenCalled();
+  it('setup is callable', async () => {
+    const setup = vi.fn();
+    const plugin = createFrontendPlugin({ setup });
+    const vantage = new VantageFrontendImpl(makeBridge(), makeRegistry());
+    await plugin.setup(vantage);
+    expect(setup).toHaveBeenCalledWith(vantage);
   });
 });
 
-describe('useCreate', () => {
-  it('mutate() calls create and returns data', async () => {
-    const { result } = renderHook(() => useCreate('tasks'));
-    let created: unknown;
-    await act(async () => {
-      created = await result.current.mutate({ title: 'New task' });
-    });
-    expect(created).toEqual({ id: 'new' });
-    expect(result.current.data).toEqual({ id: 'new' });
-    expect(result.current.loading).toBe(false);
+describe('VantageFrontendImpl', () => {
+  it('registerPage stores component in registry', () => {
+    const registry = makeRegistry();
+    const vantage = new VantageFrontendImpl(makeBridge(), registry);
+    const Comp = () => null;
+    vantage.registerPage('/test', Comp);
+    expect(registry.pages.get('/test')).toBe(Comp);
   });
-});
 
-describe('useDelete', () => {
-  it('mutate(id) calls delete', async () => {
-    const { result } = renderHook(() => useDelete('contacts'));
-    await act(async () => { await result.current.mutate('x'); });
-    expect(store.getVantageInstance().delete).toHaveBeenCalledWith('contacts', 'x');
-    expect(result.current.loading).toBe(false);
+  it('registerWidget stores component in registry', () => {
+    const registry = makeRegistry();
+    const vantage = new VantageFrontendImpl(makeBridge(), registry);
+    const Comp = () => null;
+    vantage.registerWidget('my-widget', Comp);
+    expect(registry.widgets.get('my-widget')).toBe(Comp);
   });
-});
 
-describe('useAction', () => {
-  it('mutate(payload) calls action with resource + action name', async () => {
-    const { result } = renderHook(() => useAction('alerts', 'acknowledge'));
-    await act(async () => { await result.current.mutate({ id: 'a1' }); });
-    expect(store.getVantageInstance().action).toHaveBeenCalledWith('alerts', 'acknowledge', { id: 'a1' });
+  it('registerPanel stores panel with composite key', () => {
+    const registry = makeRegistry();
+    const vantage = new VantageFrontendImpl(makeBridge(), registry);
+    const Comp = () => null;
+    vantage.registerPanel('contact', 'info', Comp);
+    const panel = registry.panels.get('contact:info');
+    expect(panel?.component).toBe(Comp);
+    expect(panel?.recordType).toBe('contact');
+    expect(panel?.id).toBe('info');
   });
-});
 
-describe('usePluginTable', () => {
-  it('fetches from plugin-owned table', async () => {
-    const { result } = renderHook(() => usePluginTable('issues'));
-    await act(async () => {});
-    expect(store.getVantageInstance().table).toHaveBeenCalledWith('issues');
-    expect(result.current.data).toEqual([{ id: 'r1' }]);
+  it('settings.get returns null on bridge error', async () => {
+    const bridge: BridgeFn = vi.fn().mockResolvedValue({ data: null, error: { code: 'NOT_FOUND', message: 'nope' } });
+    const vantage = new VantageFrontendImpl(bridge, makeRegistry());
+    const result = await vantage.settings.get('missing_key');
+    expect(result).toBeNull();
+  });
+
+  it('list calls bridge with resource.list method', async () => {
+    const bridge = makeBridge([{ id: '1' }]);
+    const vantage = new VantageFrontendImpl(bridge, makeRegistry());
+    const result = await vantage.list('contacts');
+    expect(bridge).toHaveBeenCalledWith({ method: 'contacts.list', payload: { filter: undefined } });
+    expect(result).toEqual([{ id: '1' }]);
+  });
+
+  it('get calls bridge with resource.get method', async () => {
+    const bridge = makeBridge({ id: '42' });
+    const vantage = new VantageFrontendImpl(bridge, makeRegistry());
+    const result = await vantage.get('contacts', '42');
+    expect(bridge).toHaveBeenCalledWith({ method: 'contacts.get', payload: { id: '42' } });
+    expect(result).toEqual({ id: '42' });
+  });
+
+  it('bus.on registers handler and returns unsubscribe', () => {
+    const vantage = new VantageFrontendImpl(makeBridge(), makeRegistry());
+    const handler = vi.fn();
+    const unsub = vantage.bus.on('my-event', handler);
+    vantage._dispatchBusEvent('my-event', { foo: 'bar' });
+    expect(handler).toHaveBeenCalledWith({ foo: 'bar' });
+    unsub();
+    vantage._dispatchBusEvent('my-event', { foo: 'baz' });
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('table.list calls bridge with table.list method', async () => {
+    const bridge = makeBridge([{ id: 'r1' }]);
+    const vantage = new VantageFrontendImpl(bridge, makeRegistry());
+    const result = await vantage.table('issues').list({ limit: 10 });
+    expect(bridge).toHaveBeenCalledWith({ method: 'table.list', payload: { name: 'issues', limit: 10 } });
+    expect(result).toEqual([{ id: 'r1' }]);
   });
 });

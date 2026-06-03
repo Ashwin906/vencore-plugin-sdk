@@ -1,265 +1,58 @@
-import {
-  useState,
-  useEffect,
-  useCallback,
-} from 'react';
-// TODO: update in Task 12 (frontend SDK) — ResourceRow/ResourceInput/ResourceFilter
-// were removed from plugin-types in Task 1. Hooks will be rewritten with the new
-// generic-free API.
-import type {
-  PluginContext,
-  PluginError,
-  KnownResource,
-} from '@vantage/plugin-types';
+import type { PluginContext } from '@vantage/plugin-types';
 
-type ResourceRow<_R extends KnownResource> = Record<string, unknown>;
-type ResourceInput<_R extends KnownResource> = Record<string, unknown>;
-type ResourceFilter<_R extends KnownResource> = Record<string, unknown> | undefined;
-import { getVantageInstance } from './_store';
+export type AnyComponent = import('react').ComponentType<any>;
 
-// ── usePluginContext — suspends until sdk:init received ───────────────────────
+export interface FrontendSurfaceRegistry {
+  pages: Map<string, AnyComponent>;
+  widgets: Map<string, AnyComponent>;
+  /** key = `${recordType}:${id}` */
+  panels: Map<string, { recordType: string; id: string; label: string; component: AnyComponent }>;
+}
 
-let _contextPromise: Promise<PluginContext> | null = null;
-let _resolvedContext: PluginContext | null = null;
+export interface VantageFrontendAPI {
+  registerPage(path: string, component: AnyComponent): void;
+  registerWidget(id: string, component: AnyComponent): void;
+  registerPanel(recordType: string, id: string, component: AnyComponent): void;
+  getContext(): Promise<PluginContext>;
+  navigate(path: string): void;
+  toast(message: string, type?: 'success' | 'error' | 'info' | 'warning'): void;
+  modal: {
+    open(opts: { title: string; content?: any }): void;
+    close(): void;
+  };
+  settings: {
+    get<T = unknown>(key: string): Promise<T | null>;
+  };
+  user: {
+    get(): Promise<{ id: string; name: string; email: string; role: string }>;
+  };
+  workspace: {
+    get(): Promise<{ id: string; name: string; plan: string }>;
+  };
+  bus: {
+    on(event: string, handler: (payload: unknown) => void): () => void;
+  };
+  list(resource: string, filter?: unknown): Promise<unknown[]>;
+  get(resource: string, id: string): Promise<unknown>;
+  table(name: string): {
+    list(opts?: { where?: Record<string, unknown>; limit?: number; offset?: number }): Promise<Record<string, unknown>[]>;
+  };
+  search: {
+    register(handler: (query: string) => Promise<Array<{ label: string; description?: string; href: string }>>): void;
+  };
+  commands: {
+    register(label: string, handler: () => void): void;
+  };
+}
+
+export interface FrontendPluginDefinition {
+  setup(vantage: VantageFrontendAPI): void | Promise<void>;
+}
 
 /**
- * Returns the PluginContext injected by the host via sdk:init.
- * Uses React Suspense — wrap the consuming component in a <Suspense> boundary.
+ * createFrontendPlugin — entry point for client bundles.
+ * The bundle exports this as default. PluginRuntimeContext calls setup(vantage).
  */
-export function usePluginContext(): PluginContext {
-  if (_resolvedContext) return _resolvedContext;
-  if (!_contextPromise) {
-    _contextPromise = (getVantageInstance() as any)
-      .getContext()
-      .then((ctx: PluginContext) => {
-        _resolvedContext = ctx;
-        return ctx;
-      });
-  }
-  // eslint-disable-next-line @typescript-eslint/only-throw-error
-  throw _contextPromise; // React Suspense protocol
-}
-
-// ── Shared state shapes ──────────────────────────────────────────────────────
-
-type QueryState<T> = { data: T | null; loading: boolean; error: PluginError | null };
-type MutationState<T> = { data: T | null; loading: boolean; error: PluginError | null };
-
-// ── useList ──────────────────────────────────────────────────────────────────
-
-export function useList<R extends KnownResource>(
-  resource: R,
-  filter?: ResourceFilter<R>,
-  opts?: { skip?: boolean },
-): QueryState<ResourceRow<R>[]> & { refetch(): void } {
-  const [state, setState] = useState<QueryState<ResourceRow<R>[]>>({
-    data: null,
-    loading: !opts?.skip,
-    error: null,
-  });
-  const [refetchCounter, setRefetchCounter] = useState(0);
-  const filterKey = JSON.stringify(filter);
-
-  useEffect(() => {
-    if (opts?.skip) return;
-    let cancelled = false;
-    setState((s) => ({ ...s, loading: true, error: null }));
-    (getVantageInstance().list(resource, filter) as Promise<ResourceRow<R>[]>)
-      .then((data) => {
-        if (!cancelled) setState({ data, loading: false, error: null });
-      })
-      .catch((error: PluginError) => {
-        if (!cancelled) setState({ data: null, loading: false, error });
-      });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resource, filterKey, refetchCounter, opts?.skip]);
-
-  const refetch = useCallback(() => { setRefetchCounter((c) => c + 1); }, []);
-  return { ...state, refetch };
-}
-
-// ── useGet ───────────────────────────────────────────────────────────────────
-
-export function useGet<R extends KnownResource>(
-  resource: R,
-  id: string | null | undefined,
-): QueryState<ResourceRow<R>> {
-  const [state, setState] = useState<QueryState<ResourceRow<R>>>({
-    data: null,
-    loading: !!id,
-    error: null,
-  });
-
-  useEffect(() => {
-    if (!id) return;
-    let cancelled = false;
-    setState((s) => ({ ...s, loading: true, error: null }));
-    (getVantageInstance().get(resource, id) as Promise<ResourceRow<R>>)
-      .then((data) => {
-        if (!cancelled) setState({ data, loading: false, error: null });
-      })
-      .catch((error: PluginError) => {
-        if (!cancelled) setState({ data: null, loading: false, error });
-      });
-    return () => { cancelled = true; };
-  }, [resource, id]);
-
-  return state;
-}
-
-// ── useCreate ────────────────────────────────────────────────────────────────
-
-export function useCreate<R extends KnownResource>(
-  resource: R,
-): MutationState<ResourceRow<R>> & { mutate(data: ResourceInput<R>): Promise<ResourceRow<R>> } {
-  const [state, setState] = useState<MutationState<ResourceRow<R>>>({
-    loading: false,
-    error: null,
-    data: null,
-  });
-
-  const mutate = useCallback(
-    async (data: ResourceInput<R>): Promise<ResourceRow<R>> => {
-      setState({ loading: true, error: null, data: null });
-      try {
-        const result = await (getVantageInstance().create(resource, data) as Promise<ResourceRow<R>>);
-        setState({ loading: false, error: null, data: result });
-        return result;
-      } catch (error) {
-        setState({ loading: false, error: error as PluginError, data: null });
-        throw error;
-      }
-    },
-    [resource],
-  );
-
-  return { ...state, mutate };
-}
-
-// ── useUpdate ────────────────────────────────────────────────────────────────
-
-export function useUpdate<R extends KnownResource>(
-  resource: R,
-): MutationState<ResourceRow<R>> & {
-  mutate(id: string, data: Partial<ResourceInput<R>>): Promise<ResourceRow<R>>;
-} {
-  const [state, setState] = useState<MutationState<ResourceRow<R>>>({
-    loading: false,
-    error: null,
-    data: null,
-  });
-
-  const mutate = useCallback(
-    async (id: string, data: Partial<ResourceInput<R>>): Promise<ResourceRow<R>> => {
-      setState({ loading: true, error: null, data: null });
-      try {
-        const result = await (getVantageInstance().update(resource, id, data) as Promise<ResourceRow<R>>);
-        setState({ loading: false, error: null, data: result });
-        return result;
-      } catch (error) {
-        setState({ loading: false, error: error as PluginError, data: null });
-        throw error;
-      }
-    },
-    [resource],
-  );
-
-  return { ...state, mutate };
-}
-
-// ── useDelete ────────────────────────────────────────────────────────────────
-
-export function useDelete<R extends KnownResource>(
-  resource: R,
-): { loading: boolean; error: PluginError | null; mutate(id: string): Promise<void> } {
-  const [state, setState] = useState({ loading: false, error: null as PluginError | null });
-
-  const mutate = useCallback(
-    async (id: string): Promise<void> => {
-      setState({ loading: true, error: null });
-      try {
-        await getVantageInstance().delete(resource, id);
-        setState({ loading: false, error: null });
-      } catch (error) {
-        setState({ loading: false, error: error as PluginError });
-        throw error;
-      }
-    },
-    [resource],
-  );
-
-  return { ...state, mutate };
-}
-
-// ── useAction ────────────────────────────────────────────────────────────────
-
-export function useAction<T = unknown>(
-  resource: string,
-  action: string,
-): MutationState<T> & { mutate(payload?: unknown): Promise<T> } {
-  const [state, setState] = useState<MutationState<T>>({
-    loading: false,
-    error: null,
-    data: null,
-  });
-
-  const mutate = useCallback(
-    async (payload?: unknown): Promise<T> => {
-      setState({ loading: true, error: null, data: null });
-      try {
-        const result = await getVantageInstance().action<T>(resource, action, payload);
-        setState({ loading: false, error: null, data: result });
-        return result;
-      } catch (error) {
-        setState({ loading: false, error: error as PluginError, data: null });
-        throw error;
-      }
-    },
-    [resource, action],
-  );
-
-  return { ...state, mutate };
-}
-
-// ── usePluginTable ───────────────────────────────────────────────────────────
-
-type TableQueryOpts = {
-  where?: Record<string, unknown>;
-  orderBy?: string;
-  order?: 'asc' | 'desc';
-  limit?: number;
-  offset?: number;
-};
-
-export function usePluginTable(
-  tableName: string,
-  query?: TableQueryOpts,
-): QueryState<Record<string, unknown>[]> & { refetch(): void } {
-  const [state, setState] = useState<QueryState<Record<string, unknown>[]>>({
-    data: null,
-    loading: true,
-    error: null,
-  });
-  const queryKey = JSON.stringify(query);
-  const [refetchCounter, setRefetchCounter] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setState((s) => ({ ...s, loading: true, error: null }));
-    getVantageInstance()
-      .table(tableName)
-      .list(query)
-      .then((data) => {
-        if (!cancelled) setState({ data, loading: false, error: null });
-      })
-      .catch((error: PluginError) => {
-        if (!cancelled) setState({ data: null, loading: false, error });
-      });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tableName, queryKey, refetchCounter]);
-
-  const refetch = useCallback(() => { setRefetchCounter((c) => c + 1); }, []);
-  return { ...state, refetch };
+export function createFrontendPlugin(config: FrontendPluginDefinition): FrontendPluginDefinition {
+  return config;
 }
