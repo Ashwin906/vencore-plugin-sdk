@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createFrontendPlugin } from '../react';
-import { VantageFrontendImpl } from '../frontend';
+import { VencoreFrontendImpl } from '../frontend';
 import type { BridgeFn } from '../bridge';
 import type { FrontendSurfaceRegistry } from '../react';
 
@@ -26,34 +26,34 @@ describe('createFrontendPlugin', () => {
   it('setup is callable', async () => {
     const setup = vi.fn();
     const plugin = createFrontendPlugin({ setup });
-    const vantage = new VantageFrontendImpl(makeBridge(), makeRegistry());
-    await plugin.setup(vantage);
-    expect(setup).toHaveBeenCalledWith(vantage);
+    const vencore = new VencoreFrontendImpl(makeBridge(), makeRegistry());
+    await plugin.setup(vencore);
+    expect(setup).toHaveBeenCalledWith(vencore);
   });
 });
 
-describe('VantageFrontendImpl', () => {
+describe('VencoreFrontendImpl', () => {
   it('registerPage stores component in registry', () => {
     const registry = makeRegistry();
-    const vantage = new VantageFrontendImpl(makeBridge(), registry);
+    const vencore = new VencoreFrontendImpl(makeBridge(), registry);
     const Comp = () => null;
-    vantage.registerPage('/test', Comp);
+    vencore.registerPage('/test', Comp);
     expect(registry.pages.get('/test')).toBe(Comp);
   });
 
   it('registerWidget stores component in registry', () => {
     const registry = makeRegistry();
-    const vantage = new VantageFrontendImpl(makeBridge(), registry);
+    const vencore = new VencoreFrontendImpl(makeBridge(), registry);
     const Comp = () => null;
-    vantage.registerWidget('my-widget', Comp);
+    vencore.registerWidget('my-widget', Comp);
     expect(registry.widgets.get('my-widget')).toBe(Comp);
   });
 
   it('registerPanel stores panel with composite key', () => {
     const registry = makeRegistry();
-    const vantage = new VantageFrontendImpl(makeBridge(), registry);
+    const vencore = new VencoreFrontendImpl(makeBridge(), registry);
     const Comp = () => null;
-    vantage.registerPanel('contact', 'info', Comp);
+    vencore.registerPanel('contact', 'info', Comp);
     const panel = registry.panels.get('contact:info');
     expect(panel?.component).toBe(Comp);
     expect(panel?.recordType).toBe('contact');
@@ -62,42 +62,42 @@ describe('VantageFrontendImpl', () => {
 
   it('settings.get returns null on bridge error', async () => {
     const bridge: BridgeFn = vi.fn().mockResolvedValue({ data: null, error: { code: 'NOT_FOUND', message: 'nope' } });
-    const vantage = new VantageFrontendImpl(bridge, makeRegistry());
-    const result = await vantage.settings.get('missing_key');
+    const vencore = new VencoreFrontendImpl(bridge, makeRegistry());
+    const result = await vencore.settings.get('missing_key');
     expect(result).toBeNull();
   });
 
   it('list calls bridge with resource.list method', async () => {
     const bridge = makeBridge([{ id: '1' }]);
-    const vantage = new VantageFrontendImpl(bridge, makeRegistry());
-    const result = await vantage.list('contacts');
+    const vencore = new VencoreFrontendImpl(bridge, makeRegistry());
+    const result = await vencore.list('contacts');
     expect(bridge).toHaveBeenCalledWith({ method: 'contacts.list', payload: { filter: undefined } });
     expect(result).toEqual([{ id: '1' }]);
   });
 
   it('get calls bridge with resource.get method', async () => {
     const bridge = makeBridge({ id: '42' });
-    const vantage = new VantageFrontendImpl(bridge, makeRegistry());
-    const result = await vantage.get('contacts', '42');
+    const vencore = new VencoreFrontendImpl(bridge, makeRegistry());
+    const result = await vencore.get('contacts', '42');
     expect(bridge).toHaveBeenCalledWith({ method: 'contacts.get', payload: { id: '42' } });
     expect(result).toEqual({ id: '42' });
   });
 
   it('bus.on registers handler and returns unsubscribe', () => {
-    const vantage = new VantageFrontendImpl(makeBridge(), makeRegistry());
+    const vencore = new VencoreFrontendImpl(makeBridge(), makeRegistry());
     const handler = vi.fn();
-    const unsub = vantage.bus.on('my-event', handler);
-    vantage._dispatchBusEvent('my-event', { foo: 'bar' });
+    const unsub = vencore.bus.on('my-event', handler);
+    vencore._dispatchBusEvent('my-event', { foo: 'bar' });
     expect(handler).toHaveBeenCalledWith({ foo: 'bar' });
     unsub();
-    vantage._dispatchBusEvent('my-event', { foo: 'baz' });
+    vencore._dispatchBusEvent('my-event', { foo: 'baz' });
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
   it('table.list calls bridge with table.list method', async () => {
     const bridge = makeBridge([{ id: 'r1' }]);
-    const vantage = new VantageFrontendImpl(bridge, makeRegistry());
-    const result = await vantage.table('issues').list({ limit: 10 });
+    const vencore = new VencoreFrontendImpl(bridge, makeRegistry());
+    const result = await vencore.table('issues').list({ limit: 10 });
     expect(bridge).toHaveBeenCalledWith({ method: 'table.list', payload: { name: 'issues', limit: 10 } });
     expect(result).toEqual([{ id: 'r1' }]);
   });

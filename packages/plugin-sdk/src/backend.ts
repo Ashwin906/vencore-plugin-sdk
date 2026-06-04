@@ -3,38 +3,38 @@ import type {
   PluginTableClient,
   HttpFetchOptions,
   HttpResponse,
-  VantageBackendAPI,
-  VantageSettingsNamespace,
-  VantageBusNamespace,
-  VantageFilesNamespace,
-  VantageCronNamespace,
-  VantagePermissionsNamespace,
-  VantageUser,
-  VantageWorkspace,
-  VantageFileRecord,
-  VantageNotifyOptions,
+  VencoreBackendAPI,
+  VencoreSettingsNamespace,
+  VencoreBusNamespace,
+  VencoreFilesNamespace,
+  VencoreCronNamespace,
+  VencorePermissionsNamespace,
+  VencoreUser,
+  VencoreWorkspace,
+  VencoreFileRecord,
+  VencoreNotifyOptions,
   PluginDefinition,
   PluginHookEvent,
-} from '@vantage/plugin-types';
+} from '@vencore/plugin-types';
 import type { BridgeFn, BridgeResult } from './bridge';
 
 type CronEntry = { schedule: string; name: string; handler: () => Promise<void> | void };
 
-export class VantageBackendImpl implements VantageBackendAPI {
+export class VencoreBackendImpl implements VencoreBackendAPI {
   private _bridge: BridgeFn;
   private _hookHandlers = new Map<string, Array<(p: unknown) => Promise<void> | void>>();
   private _cronJobs: CronEntry[] = [];
 
-  readonly storage: VantageBackendAPI['storage'];
-  readonly http: VantageBackendAPI['http'];
-  readonly settings: VantageSettingsNamespace;
-  readonly bus: VantageBusNamespace;
-  readonly files: VantageFilesNamespace;
-  readonly cron: VantageCronNamespace;
-  readonly permissions: VantagePermissionsNamespace;
-  readonly user: { get(): Promise<VantageUser> };
-  readonly workspace: { get(): Promise<VantageWorkspace> };
-  readonly safe: VantageBackendAPI['safe'];
+  readonly storage: VencoreBackendAPI['storage'];
+  readonly http: VencoreBackendAPI['http'];
+  readonly settings: VencoreSettingsNamespace;
+  readonly bus: VencoreBusNamespace;
+  readonly files: VencoreFilesNamespace;
+  readonly cron: VencoreCronNamespace;
+  readonly permissions: VencorePermissionsNamespace;
+  readonly user: { get(): Promise<VencoreUser> };
+  readonly workspace: { get(): Promise<VencoreWorkspace> };
+  readonly safe: VencoreBackendAPI['safe'];
 
   constructor(bridge: BridgeFn) {
     this._bridge = bridge;
@@ -66,7 +66,7 @@ export class VantageBackendImpl implements VantageBackendAPI {
 
     this.files = {
       upload: (buffer: Uint8Array, opts: { name: string; mime: string }) =>
-        this._call<VantageFileRecord>('files.upload', {
+        this._call<VencoreFileRecord>('files.upload', {
           buffer: Buffer.from(buffer).toString('base64'),
           ...opts,
         }),
@@ -86,11 +86,11 @@ export class VantageBackendImpl implements VantageBackendAPI {
     };
 
     this.user = {
-      get: () => this._call<VantageUser>('user.get', {}),
+      get: () => this._call<VencoreUser>('user.get', {}),
     };
 
     this.workspace = {
-      get: () => this._call<VantageWorkspace>('workspace.get', {}),
+      get: () => this._call<VencoreWorkspace>('workspace.get', {}),
     };
 
     const wrap = <T>(fn: () => Promise<T>): Promise<PluginResult<T>> =>
@@ -155,7 +155,7 @@ export class VantageBackendImpl implements VantageBackendAPI {
     this._hookHandlers.set(event as string, [...existing, handler]);
   }
 
-  notify(opts: VantageNotifyOptions): Promise<void> {
+  notify(opts: VencoreNotifyOptions): Promise<void> {
     return this._call<void>('notify', opts);
   }
 
@@ -177,8 +177,8 @@ export class VantageBackendImpl implements VantageBackendAPI {
   }
 }
 
-export function createVantageBackend(bridge: BridgeFn): VantageBackendImpl {
-  return new VantageBackendImpl(bridge);
+export function createVencoreBackend(bridge: BridgeFn): VencoreBackendImpl {
+  return new VencoreBackendImpl(bridge);
 }
 
 /**
@@ -186,7 +186,7 @@ export function createVantageBackend(bridge: BridgeFn): VantageBackendImpl {
  * No manifest parameter; plugin.json is the source of truth.
  */
 export function createPlugin(config: {
-  setup(vantage: VantageBackendAPI): void | Promise<void>;
+  setup(vencore: VencoreBackendAPI): void | Promise<void>;
 }): PluginDefinition {
   return config;
 }

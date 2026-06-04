@@ -1,4 +1,4 @@
-import type { PluginContext } from '@vantage/plugin-types';
+import type { PluginContext } from '@vencore/plugin-types';
 
 export type AnyComponent = import('react').ComponentType<any>;
 
@@ -9,7 +9,7 @@ export interface FrontendSurfaceRegistry {
   panels: Map<string, { recordType: string; id: string; label: string; component: AnyComponent }>;
 }
 
-export interface VantageFrontendAPI {
+export interface VencoreFrontendAPI {
   registerPage(path: string, component: AnyComponent): void;
   registerWidget(id: string, component: AnyComponent): void;
   registerPanel(recordType: string, id: string, component: AnyComponent): void;
@@ -46,12 +46,12 @@ export interface VantageFrontendAPI {
 }
 
 export interface FrontendPluginDefinition {
-  setup(vantage: VantageFrontendAPI): void | Promise<void>;
+  setup(vencore: VencoreFrontendAPI): void | Promise<void>;
 }
 
 /**
  * createFrontendPlugin — entry point for client bundles.
- * The bundle exports this as default. PluginRuntimeContext calls setup(vantage).
+ * The bundle exports this as default. PluginRuntimeContext calls setup(vencore).
  */
 export function createFrontendPlugin(config: FrontendPluginDefinition): FrontendPluginDefinition {
   return config;

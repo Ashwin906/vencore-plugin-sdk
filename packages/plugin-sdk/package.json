@@ -1,5 +1,5 @@
 {
-  "name": "@vantage/plugin-sdk",
+  "name": "@vencore/plugin-sdk",
   "version": "0.0.1",
   "private": true,
   "main": "./dist/index.js",
@@ -15,7 +15,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@vantage/plugin-types": "workspace:*"
+    "@vencore/plugin-types": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18.0.0"

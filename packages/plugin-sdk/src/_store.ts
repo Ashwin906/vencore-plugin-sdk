@@ -1,20 +1,20 @@
 /**
  * Module-level singleton — set by frontend createPlugin(), read by React hooks.
- * One VantageFrontendImpl per iframe (one plugin per iframe).
+ * One VencoreFrontendImpl per iframe (one plugin per iframe).
  */
-import type { VantageFrontendImpl } from './frontend';
+import type { VencoreFrontendImpl } from './frontend';
 
-let _instance: VantageFrontendImpl | null = null;
+let _instance: VencoreFrontendImpl | null = null;
 
-export function setVantageInstance(v: VantageFrontendImpl): void {
+export function setVencoreInstance(v: VencoreFrontendImpl): void {
   _instance = v;
 }
 
-export function getVantageInstance(): VantageFrontendImpl {
+export function getVencoreInstance(): VencoreFrontendImpl {
   if (!_instance) {
     throw new Error(
       '[plugin-sdk] SDK not initialized. ' +
-      'Import createPlugin from @vantage/plugin-sdk/frontend and call it before using hooks.',
+      'Import createPlugin from @vencore/plugin-sdk/frontend and call it before using hooks.',
     );
   }
   return _instance;
