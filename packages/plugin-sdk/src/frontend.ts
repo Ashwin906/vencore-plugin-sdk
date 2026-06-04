@@ -1,19 +1,19 @@
-import type { FrontendSurfaceRegistry, VantageFrontendAPI, AnyComponent } from './react';
+import type { FrontendSurfaceRegistry, VencoreFrontendAPI, AnyComponent } from './react';
 import type { BridgeFn } from './bridge';
-import type { PluginContext } from '@vantage/plugin-types';
+import type { PluginContext } from '@vencore/plugin-types';
 
-export class VantageFrontendImpl implements VantageFrontendAPI {
+export class VencoreFrontendImpl implements VencoreFrontendAPI {
   private _bridge: BridgeFn;
   private _registry: FrontendSurfaceRegistry;
   private _busHandlers = new Map<string, Set<(p: unknown) => void>>();
 
-  readonly settings: VantageFrontendAPI['settings'];
-  readonly user: VantageFrontendAPI['user'];
-  readonly workspace: VantageFrontendAPI['workspace'];
-  readonly bus: VantageFrontendAPI['bus'];
-  readonly modal: VantageFrontendAPI['modal'];
-  readonly search: VantageFrontendAPI['search'];
-  readonly commands: VantageFrontendAPI['commands'];
+  readonly settings: VencoreFrontendAPI['settings'];
+  readonly user: VencoreFrontendAPI['user'];
+  readonly workspace: VencoreFrontendAPI['workspace'];
+  readonly bus: VencoreFrontendAPI['bus'];
+  readonly modal: VencoreFrontendAPI['modal'];
+  readonly search: VencoreFrontendAPI['search'];
+  readonly commands: VencoreFrontendAPI['commands'];
 
   constructor(bridge: BridgeFn, registry: FrontendSurfaceRegistry) {
     this._bridge = bridge;
@@ -55,12 +55,12 @@ export class VantageFrontendImpl implements VantageFrontendAPI {
     this.modal = {
       open: (opts) => {
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('vantage:modal:open', { detail: opts }));
+          window.dispatchEvent(new CustomEvent('vencore:modal:open', { detail: opts }));
         }
       },
       close: () => {
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('vantage:modal:close'));
+          window.dispatchEvent(new CustomEvent('vencore:modal:close'));
         }
       },
     };
@@ -68,7 +68,7 @@ export class VantageFrontendImpl implements VantageFrontendAPI {
     this.search = {
       register: (handler) => {
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('vantage:search:register', { detail: handler }));
+          window.dispatchEvent(new CustomEvent('vencore:search:register', { detail: handler }));
         }
       },
     };
@@ -76,7 +76,7 @@ export class VantageFrontendImpl implements VantageFrontendAPI {
     this.commands = {
       register: (label, handler) => {
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('vantage:commands:register', { detail: { label, handler } }));
+          window.dispatchEvent(new CustomEvent('vencore:commands:register', { detail: { label, handler } }));
         }
       },
     };
@@ -96,13 +96,13 @@ export class VantageFrontendImpl implements VantageFrontendAPI {
 
   navigate(path: string): void {
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('vantage:navigate', { detail: { path } }));
+      window.dispatchEvent(new CustomEvent('vencore:navigate', { detail: { path } }));
     }
   }
 
   toast(message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info'): void {
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('vantage:toast', { detail: { message, type } }));
+      window.dispatchEvent(new CustomEvent('vencore:toast', { detail: { message, type } }));
     }
   }
 

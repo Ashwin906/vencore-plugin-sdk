@@ -17,10 +17,10 @@ importers:
 
   packages/plugin-runtime:
     dependencies:
-      '@vantage/plugin-sdk':
+      '@vencore/plugin-sdk':
         specifier: workspace:*
         version: link:../plugin-sdk
-      '@vantage/plugin-types':
+      '@vencore/plugin-types':
         specifier: workspace:*
         version: link:../plugin-types
       express:
@@ -45,7 +45,7 @@ importers:
 
   packages/plugin-sdk:
     dependencies:
-      '@vantage/plugin-types':
+      '@vencore/plugin-types':
         specifier: workspace:*
         version: link:../plugin-types
     devDependencies:

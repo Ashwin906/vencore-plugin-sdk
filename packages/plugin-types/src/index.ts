@@ -380,20 +380,20 @@ export interface PluginBuildConfig {
 
 // ── SDK namespace types (NEW) ────────────────────────────────────────────────
 
-export interface VantageUser {
+export interface VencoreUser {
   id: string;
   name: string;
   email: string;
   role: 'admin' | 'member';
 }
 
-export interface VantageWorkspace {
+export interface VencoreWorkspace {
   id: string;
   name: string;
   plan: string;
 }
 
-export interface VantageFileRecord {
+export interface VencoreFileRecord {
   id: string;
   name: string;
   mime: string;
@@ -401,33 +401,33 @@ export interface VantageFileRecord {
   url: string;
 }
 
-export interface VantageNotifyOptions {
+export interface VencoreNotifyOptions {
   title: string;
   body?: string;
   type?: 'info' | 'success' | 'warning' | 'error';
 }
 
-export interface VantageSettingsNamespace {
+export interface VencoreSettingsNamespace {
   get<T = unknown>(key: string): Promise<T | null>;
   set(key: string, value: unknown): Promise<void>;
 }
 
-export interface VantageBusNamespace {
+export interface VencoreBusNamespace {
   emit(event: string, payload: unknown): Promise<void>;
   on(event: string, handler: (payload: unknown) => Promise<void> | void): void;
 }
 
-export interface VantageFilesNamespace {
-  upload(buffer: Uint8Array, opts: { name: string; mime: string }): Promise<VantageFileRecord>;
+export interface VencoreFilesNamespace {
+  upload(buffer: Uint8Array, opts: { name: string; mime: string }): Promise<VencoreFileRecord>;
   getUrl(fileId: string): Promise<string>;
   delete(fileId: string): Promise<void>;
 }
 
-export interface VantageCronNamespace {
+export interface VencoreCronNamespace {
   register(schedule: string, name: string, handler: () => Promise<void> | void): void;
 }
 
-export interface VantagePermissionsNamespace {
+export interface VencorePermissionsNamespace {
   check(userId: string, permissionKey: string): Promise<boolean>;
 }
 
@@ -455,9 +455,9 @@ export interface PluginManifest {
   build?: PluginBuildConfig;
 }
 
-// ── VantageBackendAPI — full backend SDK surface ─────────────────────────────
+// ── VencoreBackendAPI — full backend SDK surface ─────────────────────────────
 
-export interface VantageBackendAPI {
+export interface VencoreBackendAPI {
   list(resource: string, filter?: unknown): Promise<unknown[]>;
   get(resource: string, id: string): Promise<unknown>;
   create(resource: string, data: unknown): Promise<unknown>;
@@ -474,14 +474,14 @@ export interface VantageBackendAPI {
   http: {
     fetch(url: string, options?: HttpFetchOptions): Promise<HttpResponse>;
   };
-  settings: VantageSettingsNamespace;
-  bus: VantageBusNamespace;
-  user: { get(): Promise<VantageUser> };
-  workspace: { get(): Promise<VantageWorkspace> };
-  files: VantageFilesNamespace;
-  notify(opts: VantageNotifyOptions): Promise<void>;
-  cron: VantageCronNamespace;
-  permissions: VantagePermissionsNamespace;
+  settings: VencoreSettingsNamespace;
+  bus: VencoreBusNamespace;
+  user: { get(): Promise<VencoreUser> };
+  workspace: { get(): Promise<VencoreWorkspace> };
+  files: VencoreFilesNamespace;
+  notify(opts: VencoreNotifyOptions): Promise<void>;
+  cron: VencoreCronNamespace;
+  permissions: VencorePermissionsNamespace;
   safe: {
     list(resource: string, filter?: unknown): Promise<PluginResult<unknown[]>>;
     get(resource: string, id: string): Promise<PluginResult<unknown>>;
@@ -495,7 +495,7 @@ export interface VantageBackendAPI {
 // ── PluginDefinition — no longer carries Perms generic ───────────────────────
 
 export interface PluginDefinition {
-  setup(vantage: VantageBackendAPI): void | Promise<void>;
+  setup(vencore: VencoreBackendAPI): void | Promise<void>;
 }
 
 // ── Resource type map (kept for reference) ───────────────────────────────────

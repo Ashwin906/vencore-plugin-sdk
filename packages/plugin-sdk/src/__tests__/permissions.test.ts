@@ -1,5 +1,5 @@
 // TODO: update in Task 12 (frontend SDK)
-// The old PermittedVantage, PermittedResource, PermittedWriteResource generics
+// The old PermittedVencore, PermittedResource, PermittedWriteResource generics
 // have been removed from permissions.ts. These type-level tests will be
 // rewritten once the frontend SDK namespace types are introduced.
 

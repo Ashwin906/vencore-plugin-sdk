@@ -1,4 +1,4 @@
-import type { PluginError } from '@vantage/plugin-types';
+import type { PluginError } from '@vencore/plugin-types';
 
 export interface BridgeCall {
   method: string;   // e.g. "contacts.list", "table.insert", "storage.get"
@@ -9,7 +9,7 @@ export type BridgeResult<T = unknown> =
   | { data: T; error: null }
   | { data: null; error: PluginError };
 
-/** Function injected by the runtime to handle all vantage.* calls */
+/** Function injected by the runtime to handle all vencore.* calls */
 export type BridgeFn = (call: BridgeCall) => Promise<BridgeResult>;
 
 /**

@@ -1,5 +1,5 @@
 {
-  "name": "vantage-plugin-sdk-root",
+  "name": "vencore-plugin-sdk-root",
   "private": true,
   "scripts": {
     "build": "turbo build",
