@@ -1,16 +1,41 @@
 {
   "name": "@vencore/plugin-sdk",
   "version": "0.0.1",
-  "private": true,
+  "description": "SDK for building Vencore plugins",
+  "author": "Vencore",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vencore/vencore-plugin-sdk.git"
+  },
+  "keywords": [
+    "vencore",
+    "plugin",
+    "sdk"
+  ],
   "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./react": "./src/react.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.mjs",
+      "require": "./dist/react.js"
+    }
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "lint": "tsc --noEmit",
     "test": "vitest run"
   },
@@ -21,10 +46,13 @@
     "react": ">=18.0.0"
   },
   "peerDependenciesMeta": {
-    "react": { "optional": true }
+    "react": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@testing-library/react": "^16.0.0",
+    "@types/node": "^22.19.20",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "jsdom": "^25.0.0",
