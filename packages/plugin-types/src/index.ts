@@ -212,6 +212,21 @@ export interface HttpResponse {
   ok: boolean;
 }
 
+export interface PluginHttpRequest {
+  method: string;
+  path: string;
+  query: Record<string, string>;
+  headers: Record<string, string>;
+  body: string | null;
+  params: Record<string, string>;
+}
+
+export interface PluginHttpResponse {
+  status?: number;
+  headers?: Record<string, string>;
+  body?: string | Record<string, unknown>;
+}
+
 // ── Plugin table schema ──────────────────────────────────────────────────────
 
 export type PluginColumnType =
@@ -433,6 +448,12 @@ export interface VencorePermissionsNamespace {
 
 // ── PluginManifest — updated (non-generic) ───────────────────────────────────
 
+export interface PluginEndpointDef {
+  path: string;
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'ALL';
+  auth?: boolean;
+}
+
 export interface PluginManifest {
   id: string;
   name: string;
@@ -445,6 +466,7 @@ export interface PluginManifest {
   permissions?: PluginPermissionDef[];
   /** Bridge data-access permissions — controls CRM/infra data the plugin can read/write. */
   data_access?: PluginPermission[];
+  endpoints?: PluginEndpointDef[];
   tables?: PluginTableDef[];
   migrations?: PluginMigration[];
   hooks?: PluginHookEvent[];
@@ -473,6 +495,10 @@ export interface VencoreBackendAPI {
   };
   http: {
     fetch(url: string, options?: HttpFetchOptions): Promise<HttpResponse>;
+    onEndpoint(
+      path: string,
+      handler: (req: PluginHttpRequest) => Promise<PluginHttpResponse> | PluginHttpResponse
+    ): void;
   };
   settings: VencoreSettingsNamespace;
   bus: VencoreBusNamespace;
