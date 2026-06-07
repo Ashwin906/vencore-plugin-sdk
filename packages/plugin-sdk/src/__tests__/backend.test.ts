@@ -141,3 +141,94 @@ describe('VencoreBackend.table', () => {
     });
   });
 });
+
+describe('VencoreBackend HTTP Endpoints', () => {
+  it('registers and dispatches HTTP requests based on path', async () => {
+    const bridge = makeBridge([]);
+    const v = createVencoreBackend(bridge);
+    
+    const handler = vi.fn().mockResolvedValue({ status: 200, body: 'ok' });
+    v.http.onEndpoint('/webhooks/stripe', handler);
+    
+    const req = {
+      method: 'POST',
+      path: '/webhooks/stripe',
+      query: {},
+      headers: {},
+      body: '{}',
+      params: {}
+    };
+    
+    const res = await v._dispatchHttpEndpoint(req);
+    expect(handler).toHaveBeenCalledWith(req);
+    expect(res).toEqual({ status: 200, body: 'ok' });
+  });
+
+  it('extracts params from dynamic paths', async () => {
+    const bridge = makeBridge([]);
+    const v = createVencoreBackend(bridge);
+    
+    const handler = vi.fn().mockResolvedValue({ status: 200 });
+    v.http.onEndpoint('/users/:userId/settings/:settingId', handler);
+    
+    const req = {
+      method: 'GET',
+      path: '/users/u_123/settings/s_456',
+      query: {},
+      headers: {},
+      body: null,
+      params: {} // initial empty params
+    };
+    
+    await v._dispatchHttpEndpoint(req);
+    
+    expect(handler).toHaveBeenCalledWith({
+      ...req,
+      params: {
+        userId: 'u_123',
+        settingId: 's_456'
+      }
+    });
+  });
+
+  it('supports wildcard paths', async () => {
+    const bridge = makeBridge([]);
+    const v = createVencoreBackend(bridge);
+    
+    const handler = vi.fn().mockResolvedValue({ status: 200 });
+    v.http.onEndpoint('/assets/*', handler);
+    
+    const req = {
+      method: 'GET',
+      path: '/assets/images/logo.png',
+      query: {},
+      headers: {},
+      body: null,
+      params: {}
+    };
+    
+    await v._dispatchHttpEndpoint(req);
+    
+    expect(handler).toHaveBeenCalledWith(req);
+  });
+
+  it('returns 404 for unknown endpoints', async () => {
+    const bridge = makeBridge([]);
+    const v = createVencoreBackend(bridge);
+    
+    v.http.onEndpoint('/known', vi.fn());
+    
+    const req = {
+      method: 'GET',
+      path: '/unknown',
+      query: {},
+      headers: {},
+      body: null,
+      params: {}
+    };
+    
+    const res = await v._dispatchHttpEndpoint(req);
+    expect(res.status).toBe(404);
+  });
+});
+
