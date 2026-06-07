@@ -22,10 +22,10 @@ import type { BridgeFn, BridgeResult } from './bridge';
 
 type CronEntry = { schedule: string; name: string; handler: () => Promise<void> | void };
 
-interface HttpHandlerEntry {
+type HttpHandlerEntry = {
   path: string;
   handler: (req: PluginHttpRequest) => Promise<PluginHttpResponse> | PluginHttpResponse;
-}
+};
 
 // Minimal path matcher for route patterns like /users/:id or /webhooks/*
 function matchPath(routePattern: string, path: string): Record<string, string> | null {
@@ -213,7 +213,7 @@ export class VencoreBackendImpl implements VencoreBackendAPI {
     return this._cronJobs;
   }
 
-  /** Called by runtime (bridge) to dispatch an HTTP request to a registered endpoint handler. */
+  /** Called by runtime when an HTTP endpoint is requested. */
   async _dispatchHttpEndpoint(req: PluginHttpRequest): Promise<PluginHttpResponse> {
     // Find the first handler that matches the requested path
     for (const entry of this._httpHandlers) {

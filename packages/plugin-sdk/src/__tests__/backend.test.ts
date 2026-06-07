@@ -142,7 +142,7 @@ describe('VencoreBackend.table', () => {
   });
 });
 
-describe('VencoreBackend HTTP Endpoints', () => {
+describe('VencoreBackend.http.onEndpoint + _dispatchHttpEndpoint', () => {
   it('registers and dispatches HTTP requests based on path', async () => {
     const bridge = makeBridge([]);
     const v = createVencoreBackend(bridge);
