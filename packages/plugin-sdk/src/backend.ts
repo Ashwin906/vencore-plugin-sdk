@@ -15,15 +15,49 @@ import type {
   VencoreNotifyOptions,
   PluginDefinition,
   PluginHookEvent,
+  PluginHttpRequest,
+  PluginHttpResponse,
 } from '@vencore/plugin-types';
 import type { BridgeFn, BridgeResult } from './bridge';
 
 type CronEntry = { schedule: string; name: string; handler: () => Promise<void> | void };
 
+interface HttpHandlerEntry {
+  path: string;
+  handler: (req: PluginHttpRequest) => Promise<PluginHttpResponse> | PluginHttpResponse;
+}
+
+// Minimal path matcher for route patterns like /users/:id or /webhooks/*
+function matchPath(routePattern: string, path: string): Record<string, string> | null {
+  const paramNames: string[] = [];
+  
+  // Replace parameters like :id with regex capture groups
+  let regexStr = routePattern.replace(/:([a-zA-Z0-9_]+)/g, (_, paramName) => {
+    paramNames.push(paramName);
+    return '([^/]+)';
+  });
+  
+  // Replace * with catch-all capture group
+  regexStr = regexStr.replace(/\*/g, '(.*)');
+  
+  const regex = new RegExp(`^${regexStr}/?$`); // allow optional trailing slash
+  const match = path.match(regex);
+  
+  if (!match) return null;
+  
+  const params: Record<string, string> = {};
+  paramNames.forEach((name, index) => {
+    params[name] = match[index + 1] ?? '';
+  });
+  
+  return params;
+}
+
 export class VencoreBackendImpl implements VencoreBackendAPI {
   private _bridge: BridgeFn;
   private _hookHandlers = new Map<string, Array<(p: unknown) => Promise<void> | void>>();
   private _cronJobs: CronEntry[] = [];
+  private _httpHandlers: HttpHandlerEntry[] = [];
 
   readonly storage: VencoreBackendAPI['storage'];
   readonly http: VencoreBackendAPI['http'];
@@ -48,6 +82,9 @@ export class VencoreBackendImpl implements VencoreBackendAPI {
     this.http = {
       fetch: (url: string, options?: HttpFetchOptions) =>
         this._call<HttpResponse>('http.fetch', { url, ...options }),
+      onEndpoint: (path: string, handler: (req: PluginHttpRequest) => Promise<PluginHttpResponse> | PluginHttpResponse) => {
+        this._httpHandlers.push({ path, handler });
+      },
     };
 
     this.settings = {
@@ -174,6 +211,36 @@ export class VencoreBackendImpl implements VencoreBackendAPI {
   /** Called by runtime to retrieve registered cron jobs. */
   getCronJobs(): CronEntry[] {
     return this._cronJobs;
+  }
+
+  /** Called by runtime (bridge) to dispatch an HTTP request to a registered endpoint handler. */
+  async _dispatchHttpEndpoint(req: PluginHttpRequest): Promise<PluginHttpResponse> {
+    // Find the first handler that matches the requested path
+    for (const entry of this._httpHandlers) {
+      const params = matchPath(entry.path, req.path);
+      if (params !== null) {
+        // Path matches, attach parsed params to request
+        const reqWithParams = { ...req, params };
+        try {
+          const response = await entry.handler(reqWithParams);
+          return response;
+        } catch (error) {
+          console.error(`[Plugin SDK] Error handling HTTP endpoint ${req.path}:`, error);
+          return {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ error: 'Internal Server Error' })
+          };
+        }
+      }
+    }
+    
+    // No matching handler found
+    return {
+      status: 404,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Endpoint Not Found' })
+    };
   }
 }
 
