@@ -74,14 +74,11 @@ export function defineClientBuild(options?: ClientBuildOptions): object {
     bundle: true,
     noExternal: [/(.*)/],
     outDir: options?.outDir ?? 'dist',
+    esbuildPlugins: [reactWindowPlugin()],
     esbuildOptions(opts: any) {
       opts.jsx = 'transform';
       opts.jsxFactory = 'React.createElement';
       opts.jsxFragment = 'React.Fragment';
-      opts.plugins = [
-        ...(opts.plugins ?? []),
-        reactWindowPlugin(),
-      ];
     },
   };
 }

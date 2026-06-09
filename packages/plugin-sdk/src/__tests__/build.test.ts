@@ -126,21 +126,18 @@ describe('defineClientBuild', () => {
     expect(opts.jsxFragment).toBe('React.Fragment');
   });
 
-  it('esbuildOptions injects vencore-react-window plugin', () => {
+  it('esbuildPlugins includes vencore-react-window plugin', () => {
     const config = defineClientBuild() as any;
-    const opts: any = { plugins: [] };
-    config.esbuildOptions(opts);
-    const names = (opts.plugins as any[]).map(p => p.name);
+    const names = (config.esbuildPlugins as any[]).map((p: any) => p.name);
     expect(names).toContain('vencore-react-window');
   });
 
-  it('esbuildOptions preserves existing esbuild plugins', () => {
+  it('esbuildOptions does not add plugins (plugin is in esbuildPlugins)', () => {
     const config = defineClientBuild() as any;
-    const existingPlugin = { name: 'my-plugin', setup: () => {} };
-    const opts: any = { plugins: [existingPlugin] };
+    const opts: any = { plugins: [{ name: 'my-plugin', setup: () => {} }] };
     config.esbuildOptions(opts);
-    const names = (opts.plugins as any[]).map(p => p.name);
+    const names = (opts.plugins as any[]).map((p: any) => p.name);
     expect(names).toContain('my-plugin');
-    expect(names).toContain('vencore-react-window');
+    expect(names).not.toContain('vencore-react-window');
   });
 });
