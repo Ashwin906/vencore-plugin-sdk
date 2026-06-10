@@ -26,6 +26,11 @@
       "types": "./dist/react.d.ts",
       "import": "./dist/react.mjs",
       "require": "./dist/react.js"
+    },
+    "./build": {
+      "types": "./dist/build.d.ts",
+      "import": "./dist/build.mjs",
+      "require": "./dist/build.js"
     }
   },
   "files": [
