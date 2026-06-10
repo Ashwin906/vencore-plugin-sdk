@@ -94,6 +94,26 @@ export class VencoreFrontendImpl implements VencoreFrontendAPI {
     this._registry.panels.set(`${recordType}:${id}`, { recordType, id, label: id, component });
   }
 
+  registerDashboardWidget(
+    def: {
+      id: string;
+      label: string;
+      description?: string;
+      defaultW: number;
+      defaultH: number;
+      minW?: number;
+      minH?: number;
+      permission?: string;
+    },
+    component: AnyComponent,
+  ): void {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('vencore:dashboard:register-widget', { detail: { def, component } }),
+      );
+    }
+  }
+
   navigate(path: string): void {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('vencore:navigate', { detail: { path } }));
