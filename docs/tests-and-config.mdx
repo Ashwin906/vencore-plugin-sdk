@@ -120,13 +120,14 @@ Outputs:
 
 Exports:
 
-- `.` -> `./src/index.ts`
-- `./react` -> `./src/react.ts`
+- `.` -> `./dist/index.{js,mjs,d.ts}`
+- `./react` -> `./dist/react.{js,mjs,d.ts}`
+- `./build` -> `./dist/build.{js,mjs,d.ts}`
 
 Scripts:
 
-- `build`: `tsc`
-- `dev`: `tsc --watch`
+- `build`: `tsup`
+- `dev`: `tsup --watch`
 - `lint`: `tsc --noEmit`
 - `test`: `vitest run`
 
@@ -230,6 +231,23 @@ Current assertions:
 - `StorageReadNamespace` does not match full `StorageNamespace`.
 
 These are type-level Vitest assertions using `expectTypeOf`.
+
+## Build Tests
+
+Source file: `packages/plugin-sdk/src/__tests__/build.test.ts`.
+
+Tests for `reactWindowPlugin` and `defineClientBuild` from `packages/plugin-sdk/src/build.ts`.
+
+Covered behavior:
+
+- `reactWindowPlugin` intercepts `react` imports in the `vencore-react-window` namespace.
+- `reactWindowPlugin` intercepts `react-dom` imports in the `vencore-react-window` namespace.
+- The `react` shim re-exports named hooks (`useState`, `useEffect`, `useRef`, `useCallback`, `useMemo`, `useContext`, `useReducer`, `useLayoutEffect`) from `globalThis.React`.
+- The `react-dom` shim re-exports `createRoot`, `render`, `unmountComponentAtNode`, and `findDOMNode` from `globalThis.ReactDOM`.
+- `defineClientBuild` returns an object with `format: ['esm']`, `platform: 'browser'`, `bundle: true`.
+- `defineClientBuild` uses `esbuildPlugins` (not `esbuildOptions.plugins`) so the plugin is applied at the correct tsup injection point.
+- `defineClientBuild` configures `opts.jsx = 'transform'`, `opts.jsxFactory = 'React.createElement'`, `opts.jsxFragment = 'React.Fragment'`.
+- `defineClientBuild` accepts custom `entry` and `outDir` options.
 
 ## Lockfile
 

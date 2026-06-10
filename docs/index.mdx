@@ -31,7 +31,10 @@ The package exports are source-first during local development:
 ```ts
 import { createPlugin, createVantageBackend } from '@vantage/plugin-sdk';
 import { createFrontendPlugin } from '@vantage/plugin-sdk/react';
+import { defineClientBuild, reactWindowPlugin } from '@vantage/plugin-sdk/build';
 ```
+
+`@vantage/plugin-sdk/build` provides tsup build helpers for plugin frontend bundles — see [Frontend SDK](./frontend.mdx#react-frontend-build).
 
 ## Backend Plugin
 
@@ -112,7 +115,7 @@ Package scripts:
 - [Type reference](./types.mdx): every exported type from `@vantage/plugin-types`.
 - [plugin.json](./plugin-json.mdx): manifest schema, examples, permissions, surfaces, settings, hooks, migrations, and build entries.
 - [Backend SDK](./backend.mdx): backend implementation, safe APIs, table API, hooks, bus, cron, files, storage, HTTP, settings, users, workspace, and notifications.
-- [Frontend SDK](./frontend.mdx): frontend implementation, React entry point, surface registry, DOM events, bridge reads, and singleton store.
+- [Frontend SDK](./frontend.mdx): frontend implementation, React entry point, React build helpers (`defineClientBuild`, `reactWindowPlugin`), `mount`/`unmount` pattern, surface registry, DOM events, bridge reads, and singleton store.
 - [Bridge and permissions](./bridge-and-permissions.mdx): bridge protocol, iframe postMessage bridge, permission namespace types.
 - [Tests and config](./tests-and-config.mdx): test files, package files, TypeScript configs, Turbo config, workspace file, and lockfile.
 - [File coverage](./file-coverage.mdx): explicit checklist proving every repo file is documented.
