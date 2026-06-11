@@ -32,6 +32,7 @@ describe('PluginBus', () => {
   })
 
   it('ignores on() for undeclared listens topic', () => {
+    bus.registerPlugin('calendar', ['calendar:event.created'], [])
     bus.registerPlugin('mail', [], [])
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const handler = vi.fn()

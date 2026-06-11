@@ -10,7 +10,12 @@ export class PluginBus {
   private emitter = new EventEmitter()
   private plugins = new Map<string, PluginRegistration>()
 
+  constructor() {
+    this.emitter.setMaxListeners(0)
+  }
+
   registerPlugin(pluginId: string, emits: string[], listens: string[]): void {
+    this.unregisterPlugin(pluginId)
     this.plugins.set(pluginId, {
       emits: new Set(emits),
       listens: new Set(listens),
