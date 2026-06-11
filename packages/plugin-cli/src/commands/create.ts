@@ -20,7 +20,7 @@ function replaceInDir(dir: string, from: string, to: string): void {
 }
 
 export async function runCreate(name: string): Promise<void> {
-  const templateDir = join(__dirname, '..', '..', 'template')
+  const templateDir = join(__dirname, '..', 'template')
   const targetDir = resolve(process.cwd(), name)
 
   console.log(chalk.cyan(`Creating plugin "${name}"...`))
