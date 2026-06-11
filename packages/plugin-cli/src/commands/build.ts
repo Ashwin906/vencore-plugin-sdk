@@ -23,6 +23,10 @@ export async function runBuild(): Promise<void> {
   }
 
   const { id, version } = manifest
+  if (!id || !version) {
+    console.error(chalk.red('✗ plugin.json must have "id" and "version" fields'))
+    process.exit(1)
+  }
   const zipName = `${id}-${version}.zip`
   const zipPath = resolve(cwd, zipName)
 
