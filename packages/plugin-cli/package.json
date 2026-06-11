@@ -1,18 +1,32 @@
 {
   "name": "@vencore/plugin-cli",
   "version": "0.0.1",
-  "description": "CLI for building Vencore plugins",
+  "description": "CLI for scaffolding, building, and validating Vencore plugins",
   "author": "Vencore",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vencore/vencore-plugin-sdk.git"
+  },
+  "keywords": [
+    "vencore",
+    "plugin",
+    "cli",
+    "scaffold"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "bin": {
     "vencore": "./dist/index.js"
   },
   "main": "./dist/index.js",
-  "files": ["dist", "template"],
+  "files": ["dist", "template", "README.md", "LICENSE"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
     "archiver": "^7.0.1",
