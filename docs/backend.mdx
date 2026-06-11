@@ -154,17 +154,68 @@ Bridge methods:
 
 ## Bus Namespace
 
-`bus.emit(event, payload)` sends an event through the runtime:
+`bus.emit(event, payload)` sends an event through the runtime bridge:
 
 ```ts
-await vantage.bus.emit('deployments.changed', { deploymentId: 'dep_1' });
+// System hook event
+await vantage.bus.emit('contact.created', { id: 'c1' });
+
+// Cross-plugin event (topic must be declared in plugin.json emits[])
+await vantage.bus.emit('com.example.calendar:event.created', { id, title });
 ```
 
 Bridge method:
 
 - `bus.emit` with `{ event, payload }`
 
-`bus.on(event, handler)` stores a local handler under `bus:${event}`. The runtime can call `_dispatchBusEvent(event, payload)` to invoke those handlers.
+`bus.on(event, handler)` stores a local handler under `bus:${event}`. The runtime calls `_dispatchBusEvent(event, payload)` to invoke those handlers:
+
+```ts
+// Subscribe to system hook event
+vantage.bus.on('contact.created', async (payload) => {
+  // ...
+});
+
+// Subscribe to cross-plugin event (topic must be declared in plugin.json listens[])
+vantage.bus.on('com.example.tasks:task.created', async (payload) => {
+  // ...
+});
+```
+
+### Cross-Plugin Event Routing (host side)
+
+The host uses `PluginBus` from `@vencore/plugin-sdk` to route events between plugins. Plugin authors do not interact with `PluginBus` directly — this section is for runtime integrators.
+
+```ts
+import { PluginBus } from '@vencore/plugin-sdk';
+
+const bus = new PluginBus();
+
+// On plugin load — register declared topics from manifest
+bus.registerPlugin(
+  manifest.id,
+  manifest.emits ?? [],
+  manifest.listens ?? [],
+);
+
+// In the bridge emit handler — route plugin emits to subscribers
+bus.emit(pluginId, topic, payload);
+
+// When subscribing a loaded plugin to its declared topics
+bus.on(pluginId, topic, (payload) =>
+  pluginInstance._dispatchBusEvent(topic, payload),
+);
+
+// On plugin unload — removes all handlers automatically
+bus.unregisterPlugin(pluginId);
+```
+
+`PluginBus` guarantees:
+- Emit to undeclared topic → warning logged, event dropped
+- Subscribe to undeclared topic → silently ignored
+- Subscriber errors are isolated — one crashing handler does not affect others
+- Payload must be JSON-serializable; non-serializable payload throws to the emitter
+- Registration is idempotent — re-registering a plugin removes old listeners first
 
 ## Files Namespace
 

@@ -67,7 +67,8 @@ Required fields:
     }
   ],
   "hooks": ["contact.created"],
-  "emits": ["com.example.calendar.event.created"],
+  "emits": ["com.example.calendar:event.created"],
+  "listens": ["com.example.tasks:task.created"],
   "surfaces": {
     "nav": [
       { "label": "Calendar", "path": "/calendar", "icon": "Calendar", "group": "general" }
@@ -216,23 +217,32 @@ vantage.on('contact.created', async (payload) => {
 });
 ```
 
-## Emitted Events
+## Cross-Plugin Events
 
-`emits` declares bus events this plugin may emit.
+`emits` and `listens` declare bus topics for cross-plugin communication. Topics are namespaced `<pluginId>:<topic>`.
 
 ```json
 {
-  "emits": ["com.example.calendar.event.created"]
+  "emits": ["com.example.calendar:event.created"],
+  "listens": ["com.example.tasks:task.created"]
 }
 ```
 
-Backend code emits events with:
+Backend code emits and subscribes with:
 
 ```ts
-await vantage.bus.emit('com.example.calendar.event.created', payload);
+// Emit — topic must be declared in emits[]
+await vantage.bus.emit('com.example.calendar:event.created', { id, title });
+
+// Subscribe — topic must be declared in listens[]
+vantage.bus.on('com.example.tasks:task.created', async (payload) => {
+  // handle incoming event from the tasks plugin
+});
 ```
 
-The manifest declaration is for discovery and integration.
+The host validates topics against these declarations at plugin load time. An emit to an undeclared topic is dropped with a warning. A subscription to an undeclared topic is silently ignored.
+
+`emits` is also used for discovery — other plugins declare a matching topic in their `listens` to receive it.
 
 ## Surfaces
 
