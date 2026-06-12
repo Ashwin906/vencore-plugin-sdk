@@ -14,7 +14,7 @@ npm install @vencore/plugin-sdk @vencore/plugin-types
 
 | Entry | Purpose |
 |---|---|
-| `@vencore/plugin-sdk` | Backend plugin API (`createPlugin`, `VencoreBackendImpl`) |
+| `@vencore/plugin-sdk` | Backend plugin API (`createPlugin`, `VencoreBackendImpl`, `PluginBus`) |
 | `@vencore/plugin-sdk/react` | React hooks for frontend panels |
 | `@vencore/plugin-sdk/build` | tsup build helpers — `defineClientBuild`, `reactWindowPlugin` |
 
@@ -44,8 +44,16 @@ export default createPlugin({
       // ...
     });
 
-    // Bus events
+    // Subscribe to system hook
     vencore.bus.on('contact.created', async (payload) => {
+      // ...
+    });
+
+    // Emit a cross-plugin event (must be declared in plugin.json emits)
+    vencore.bus.emit('my-plugin:data.synced', { count: 42 });
+
+    // Subscribe to another plugin's event (must be declared in plugin.json listens)
+    vencore.bus.on('calendar:event.created', async (payload) => {
       // ...
     });
   },
@@ -69,6 +77,55 @@ vencore.http.onEndpoint('/users/:id', async (req) => {
   };
 });
 ```
+
+---
+
+## Cross-Plugin Events
+
+Plugins communicate via a typed topic registry. Topics are namespaced `<pluginId>:<topic>` and declared in `plugin.json`.
+
+**Declare in `plugin.json`:**
+
+```json
+{
+  "emits": ["my-plugin:data.synced"],
+  "listens": ["calendar:event.created"]
+}
+```
+
+**Emit / subscribe in plugin code:**
+
+```typescript
+// Emit (topic must be in emits[])
+vencore.bus.emit('my-plugin:data.synced', { count: 42 })
+
+// Subscribe (topic must be in listens[])
+vencore.bus.on('calendar:event.created', async (payload) => {
+  console.log('calendar event:', payload)
+})
+```
+
+The host uses `PluginBus` (exported from `@vencore/plugin-sdk`) to route events:
+
+```typescript
+import { PluginBus } from '@vencore/plugin-sdk'
+
+const bus = new PluginBus()
+
+// On plugin load:
+bus.registerPlugin('my-plugin', manifest.emits ?? [], manifest.listens ?? [])
+
+// On plugin unload:
+bus.unregisterPlugin('my-plugin')
+
+// Route emits from bridge handler:
+bus.emit(pluginId, topic, payload)
+
+// Route to subscribers:
+bus.on(pluginId, topic, (payload) => pluginInstance._dispatchBusEvent(topic, payload))
+```
+
+Payload must be JSON-serializable. Subscriber errors are isolated — a crashing subscriber does not affect the emitter or other subscribers.
 
 ---
 
@@ -166,13 +223,27 @@ Classic JSX transform (`React.createElement`) is used — not the automatic tran
   "name": "Mail",
   "version": "0.1.0",
   "description": "Email accounts and inbox",
-  "permissions": ["storage", "http"],
-  "data_access": [],
+  "data_access": ["contacts:read"],
+  "emits": ["com.vencore.mail:message.received"],
+  "listens": ["calendar:event.created"],
   "tables": [
     { "name": "mail_accounts", "columns": [] }
   ]
 }
 ```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Unique plugin identifier |
+| `name` | `string` | Display name |
+| `version` | `string` | Semver |
+| `emits` | `string[]` | Cross-plugin topics this plugin publishes. Format: `<pluginId>:<topic>` |
+| `listens` | `string[]` | Cross-plugin topics this plugin subscribes to. Format: `<pluginId>:<topic>` |
+| `data_access` | `PluginPermission[]` | CRM/infra data the plugin can read/write |
+| `tables` | `PluginTableDef[]` | Plugin-owned DB tables |
+| `hooks` | `PluginHookEvent[]` | System hook events to listen for |
+| `surfaces` | `PluginSurfaces` | Nav items, pages, panels |
+| `settings_schema` | `PluginSettingsField[]` | Configuration fields shown in admin UI |
 
 ---
 

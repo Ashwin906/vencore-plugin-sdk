@@ -472,6 +472,8 @@ export interface PluginManifest {
   hooks?: PluginHookEvent[];
   /** Events this plugin emits on the bus. Declarative — for discovery. */
   emits?: string[];
+  /** Cross-plugin bus topics this plugin subscribes to. Format: "<pluginId>:<topic>". */
+  listens?: string[];
   surfaces?: PluginSurfaces;
   settings_schema?: PluginSettingsField[];
   build?: PluginBuildConfig;
