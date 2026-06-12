@@ -1,6 +1,6 @@
 {
   "name": "@vencore/plugin-sdk",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "description": "SDK for building Vencore plugins",
   "author": "Vencore",
   "license": "MIT",
