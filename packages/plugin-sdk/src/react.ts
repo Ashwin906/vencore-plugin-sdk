@@ -13,6 +13,19 @@ export interface VencoreFrontendAPI {
   registerPage(path: string, component: AnyComponent): void;
   registerWidget(id: string, component: AnyComponent): void;
   registerPanel(recordType: string, id: string, component: AnyComponent): void;
+  registerDashboardWidget(
+    def: {
+      id: string;
+      label: string;
+      description?: string;
+      defaultW: number;
+      defaultH: number;
+      minW?: number;
+      minH?: number;
+      permission?: string;
+    },
+    component: AnyComponent,
+  ): void;
   getContext(): Promise<PluginContext>;
   navigate(path: string): void;
   toast(message: string, type?: 'success' | 'error' | 'info' | 'warning'): void;

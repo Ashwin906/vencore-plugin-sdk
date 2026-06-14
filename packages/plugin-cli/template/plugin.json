@@ -1,0 +1,21 @@
+{
+  "id": "example-plugin",
+  "name": "Example Plugin",
+  "version": "0.0.1",
+  "description": "A minimal Vencore plugin",
+  "emits": [],
+  "listens": [],
+  "hooks": ["contact.created"],
+  "surfaces": {
+    "nav": [
+      { "label": "Example", "path": "/example", "group": "general" }
+    ],
+    "pages": [
+      { "path": "/example", "title": "Example" }
+    ]
+  },
+  "build": {
+    "server": "src/index.ts",
+    "client": "src/client/index.tsx"
+  }
+}

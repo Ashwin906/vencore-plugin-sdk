@@ -1,0 +1,16 @@
+{
+  "name": "example-plugin",
+  "version": "0.0.1",
+  "scripts": {
+    "build": "vencore build",
+    "dev": "vencore dev",
+    "validate": "vencore validate"
+  },
+  "dependencies": {
+    "@vencore/plugin-sdk": "^0.0.3"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "typescript": "^5.4.0"
+  }
+}

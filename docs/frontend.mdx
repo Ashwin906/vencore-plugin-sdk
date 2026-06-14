@@ -4,10 +4,82 @@ Source files:
 
 - `packages/plugin-sdk/src/frontend.ts`
 - `packages/plugin-sdk/src/react.ts`
+- `packages/plugin-sdk/src/build.ts`
 - `packages/plugin-sdk/src/_store.ts`
 - `packages/plugin-sdk/src/index.ts`
 
 The frontend SDK gives plugin bundles a typed API for registering UI surfaces and using runtime services from an iframe.
+
+## React Frontend Build
+
+Source file: `packages/plugin-sdk/src/build.ts`.
+
+Export path: `@vencore/plugin-sdk/build`.
+
+Plugins that render React components use `defineClientBuild` to configure their tsup frontend bundle. The host loads plugin frontend bundles as ES modules in its own JS context, so plugins must not bundle their own React — instead React is read from `globalThis.React` / `globalThis.ReactDOM`, which the host sets before import.
+
+### `defineClientBuild(options?)`
+
+Returns a tsup config object for the frontend bundle. Options:
+
+| Option | Default | Description |
+|---|---|---|
+| `entry` | `'src/client.tsx'` | Frontend entry file |
+| `outDir` | `'dist'` | Output directory |
+
+Produces an ESM bundle with `reactWindowPlugin` injected and classic JSX transform configured.
+
+Usage in a plugin's `tsup.config.ts`:
+
+```ts
+import { defineConfig } from 'tsup';
+import { defineClientBuild } from '@vencore/plugin-sdk/build';
+
+export default defineConfig([
+  {
+    entry: { index: 'src/index.ts' },
+    format: ['cjs'],
+    noExternal: [/(.*)/],
+    outDir: 'dist',
+    bundle: true,
+    clean: true,
+  },
+  defineClientBuild() as any,
+]);
+```
+
+### `reactWindowPlugin()`
+
+An esbuild plugin that intercepts `react` and `react-dom` imports and redirects them to `globalThis.React` / `globalThis.ReactDOM`. This is applied automatically by `defineClientBuild` — plugin authors do not call it directly.
+
+Why this is needed: tsup bundles all dependencies by default (`noExternal: [/(.*)/]`). Without this plugin, React would be bundled twice — once in the host and once in the plugin — causing the "Invalid hook call" error at runtime. The esbuild plugin replaces both imports with thin shims that read from the globals the host already set.
+
+Classic JSX transform (`React.createElement`) is configured alongside the plugin so no `react/jsx-runtime` import is emitted.
+
+### `mount` / `unmount` pattern
+
+The host calls exported `mount` and `unmount` functions from the client bundle:
+
+```tsx
+// src/client.tsx
+import React, { useState } from 'react';
+import ReactDOM from 'react-dom';
+
+function MyPanel() {
+  const [open, setOpen] = useState(false);
+  return <button onClick={() => setOpen(o => !o)}>Toggle</button>;
+}
+
+export function mount(container: HTMLElement) {
+  ReactDOM.render(<MyPanel />, container);
+}
+
+export function unmount(container: HTMLElement) {
+  ReactDOM.unmountComponentAtNode(container);
+}
+```
+
+`mount` / `unmount` are the only required exports from a client bundle. All React imports resolve to the host's globals at runtime.
 
 ## React Entry Point
 

@@ -1,9 +1,10 @@
 # Vantage Plugin SDK
 
-The Vantage Plugin SDK is the TypeScript toolkit for building plugins that run inside the Vantage app. It is split into two workspace packages:
+The Vantage Plugin SDK is the TypeScript toolkit for building plugins that run inside the Vantage app. It is split into three workspace packages:
 
 - `@vantage/plugin-types`: shared domain, manifest, bridge, table, permission, and API types.
 - `@vantage/plugin-sdk`: backend and frontend helpers that turn a runtime bridge into a plugin authoring API.
+- `@vencore/plugin-cli`: CLI for scaffolding, building, and validating plugins (`vencore create`, `build`, `dev`, `validate`).
 
 Use these docs when you are creating a plugin, wiring a runtime host, or checking what each SDK file is responsible for.
 
@@ -31,7 +32,10 @@ The package exports are source-first during local development:
 ```ts
 import { createPlugin, createVantageBackend } from '@vantage/plugin-sdk';
 import { createFrontendPlugin } from '@vantage/plugin-sdk/react';
+import { defineClientBuild, reactWindowPlugin } from '@vantage/plugin-sdk/build';
 ```
+
+`@vantage/plugin-sdk/build` provides tsup build helpers for plugin frontend bundles — see [Frontend SDK](./frontend.mdx#react-frontend-build).
 
 ## Backend Plugin
 
@@ -107,12 +111,25 @@ Package scripts:
 - `packages/plugin-types` runs TypeScript build, watch, and no-emit lint.
 - `packages/plugin-sdk` runs TypeScript build, watch, no-emit lint, and Vitest tests.
 
+## Plugin CLI
+
+`@vencore/plugin-cli` provides the `vencore` binary for plugin development:
+
+```sh
+npm install -g @vencore/plugin-cli
+
+vencore create my-plugin   # scaffold from template
+vencore dev                # watch mode
+vencore build              # compile → <id>-<version>.zip
+vencore validate           # lint plugin.json
+```
+
 ## Docs Map
 
 - [Type reference](./types.mdx): every exported type from `@vantage/plugin-types`.
-- [plugin.json](./plugin-json.mdx): manifest schema, examples, permissions, surfaces, settings, hooks, migrations, and build entries.
-- [Backend SDK](./backend.mdx): backend implementation, safe APIs, table API, hooks, bus, cron, files, storage, HTTP, settings, users, workspace, and notifications.
-- [Frontend SDK](./frontend.mdx): frontend implementation, React entry point, surface registry, DOM events, bridge reads, and singleton store.
+- [plugin.json](./plugin-json.mdx): manifest schema, examples, permissions, surfaces, settings, hooks, migrations, cross-plugin events, and build entries.
+- [Backend SDK](./backend.mdx): backend implementation, safe APIs, table API, hooks, bus (including cross-plugin routing and host-side `PluginBus`), cron, files, storage, HTTP, settings, users, workspace, and notifications.
+- [Frontend SDK](./frontend.mdx): frontend implementation, React entry point, React build helpers (`defineClientBuild`, `reactWindowPlugin`), `mount`/`unmount` pattern, surface registry, DOM events, bridge reads, and singleton store.
 - [Bridge and permissions](./bridge-and-permissions.mdx): bridge protocol, iframe postMessage bridge, permission namespace types.
 - [Tests and config](./tests-and-config.mdx): test files, package files, TypeScript configs, Turbo config, workspace file, and lockfile.
 - [File coverage](./file-coverage.mdx): explicit checklist proving every repo file is documented.
