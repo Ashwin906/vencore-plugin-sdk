@@ -5,4 +5,11 @@ dist/
 
 artifacts/
 
+# Plugin packages (not part of SDK repo)
+packages/ai-chat-plugin/
+packages/ai-core-plugin/
+packages/llm-connector-plugin/
+packages/vencore-test-plugin/
+*.zip
+
 .agent/

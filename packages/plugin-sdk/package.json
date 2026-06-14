@@ -31,6 +31,16 @@
       "types": "./dist/build.d.ts",
       "import": "./dist/build.mjs",
       "require": "./dist/build.js"
+    },
+    "./backend": {
+      "types": "./dist/backend.d.ts",
+      "import": "./dist/backend.mjs",
+      "require": "./dist/backend.js"
+    },
+    "./frontend": {
+      "types": "./dist/frontend.d.ts",
+      "import": "./dist/frontend.mjs",
+      "require": "./dist/frontend.js"
     }
   },
   "files": [
