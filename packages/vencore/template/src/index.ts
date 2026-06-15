@@ -1,4 +1,4 @@
-import { createPlugin } from '@vencore/plugin-sdk'
+import { createPlugin } from 'vencore/backend'
 
 export default createPlugin({
   setup(vencore) {

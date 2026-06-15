@@ -14,7 +14,7 @@ export function getVencoreInstance(): VencoreFrontendImpl {
   if (!_instance) {
     throw new Error(
       '[plugin-sdk] SDK not initialized. ' +
-      'Import createPlugin from @vencore/plugin-sdk/frontend and call it before using hooks.',
+      'Import createFrontendPlugin from vencore/react and call it before using hooks.',
     );
   }
   return _instance;

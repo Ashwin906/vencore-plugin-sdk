@@ -1,6 +1,6 @@
 import type { FrontendSurfaceRegistry, VencoreFrontendAPI, AnyComponent } from './react';
 import type { BridgeFn } from './bridge';
-import type { PluginContext } from '@vencore/plugin-types';
+import type { PluginContext } from './types';
 
 export class VencoreFrontendImpl implements VencoreFrontendAPI {
   private _bridge: BridgeFn;

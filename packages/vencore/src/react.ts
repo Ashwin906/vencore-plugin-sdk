@@ -1,4 +1,4 @@
-import type { PluginContext } from '@vencore/plugin-types';
+import type { PluginContext } from './types';
 
 export type AnyComponent = import('react').ComponentType<any>;
 

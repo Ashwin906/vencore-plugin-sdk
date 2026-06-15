@@ -1,4 +1,4 @@
-import { createFrontendPlugin } from '@vencore/plugin-sdk/react'
+import { createFrontendPlugin } from 'vencore/react'
 import App from './App'
 
 export default createFrontendPlugin({
