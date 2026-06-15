@@ -17,7 +17,7 @@ import type {
   PluginHookEvent,
   PluginHttpRequest,
   PluginHttpResponse,
-} from '@vencore/plugin-types';
+} from './types';
 import type { BridgeFn, BridgeResult } from './bridge';
 
 type CronEntry = { schedule: string; name: string; handler: () => Promise<void> | void };

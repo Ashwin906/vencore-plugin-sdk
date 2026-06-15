@@ -1,4 +1,4 @@
-import type { PluginError } from '@vencore/plugin-types';
+import type { PluginError } from './types';
 
 export interface BridgeCall {
   method: string;   // e.g. "contacts.list", "table.insert", "storage.get"

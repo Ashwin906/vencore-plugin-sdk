@@ -1,4 +1,4 @@
-import { defineClientBuild } from '@vencore/plugin-sdk/build'
+import { defineClientBuild } from 'vencore/build'
 import { defineConfig } from 'tsup'
 
 export default [

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateManifest } from '../commands/validate'
+import { validateManifest } from '../cli/commands/validate'
 
 describe('validateManifest', () => {
   const valid = {

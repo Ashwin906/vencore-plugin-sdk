@@ -1,4 +1,4 @@
-import type { HttpFetchOptions, HttpResponse } from '@vencore/plugin-types';
+import type { HttpFetchOptions, HttpResponse } from './types';
 
 export interface StorageReadNamespace {
   get<T = unknown>(key: string): Promise<T | null>;

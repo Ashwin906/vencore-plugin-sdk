@@ -6,4 +6,4 @@ export type { StorageNamespace, StorageReadNamespace, HttpNamespace, ModalNamesp
 export { createFrontendPlugin } from './react';
 export type { VencoreFrontendAPI, FrontendPluginDefinition, FrontendSurfaceRegistry, AnyComponent } from './react';
 export { VencoreFrontendImpl } from './frontend';
-export type * from '@vencore/plugin-types';
+export type * from './types';

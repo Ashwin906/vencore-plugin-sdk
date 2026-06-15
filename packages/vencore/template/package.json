@@ -7,7 +7,7 @@
     "validate": "vencore validate"
   },
   "dependencies": {
-    "@vencore/plugin-sdk": "^0.0.3"
+    "vencore": "^0.1.0"
   },
   "devDependencies": {
     "@types/react": "^18.0.0",
