@@ -1,2 +1,4 @@
 packages:
-  - 'packages/*'
+  # Only the published package. Local scratch plugins under packages/* are
+  # excluded — they are not part of this repo.
+  - 'packages/vencore'
