@@ -311,6 +311,48 @@ export type PluginHookEvent =
   | 'task.created' | 'task.updated'
   | (string & {});
 
+// ── Hook provider system ──────────────────────────────────────────────────────
+
+/**
+ * Declares that this plugin can act as a CRM provider for one or more
+ * hook features in a Vencore module.
+ *
+ * Example: a Salesforce plugin declares it can provide `customer_sync`
+ * and `revenue_attribution` for the `projects` module.
+ */
+export interface HookProviderDef {
+  /** Module the hook belongs to, e.g. "projects", "tasks". */
+  module_id: string;
+  /** Feature within that module, e.g. "customer_sync", "auto_project_from_deal". */
+  feature_id: string;
+}
+
+/** Runtime state of a hook feature as seen by the current plugin. */
+export interface HookFeatureState {
+  /** Whether this plugin is the currently selected provider for this feature. */
+  active: boolean;
+  /** Whether the feature is enabled at all (may be enabled with a different provider). */
+  enabled: boolean;
+  /** The provider string ID that is currently selected, if any. */
+  selected_provider_id: string | null;
+}
+
+/** Hooks namespace on `VencoreBackendAPI`. */
+export interface VencoreHooksNamespace {
+  /**
+   * Check whether THIS plugin is the active provider for a hook feature.
+   * Returns the resolved hook state. Returns null if the feature is not
+   * configured or if a different plugin is the active provider.
+   */
+  resolve(moduleId: string, featureId: string): Promise<HookFeatureState | null>;
+
+  /**
+   * List all hook features this plugin provides, with their current state.
+   * Useful for a plugin's own settings page.
+   */
+  listProvided(): Promise<Array<HookProviderDef & { state: HookFeatureState }>>;
+}
+
 // ── Plugin user-facing permission definition (NEW) ───────────────────────────
 
 export interface PluginPermissionDef {
@@ -470,6 +512,19 @@ export interface PluginManifest {
   tables?: PluginTableDef[];
   migrations?: PluginMigration[];
   hooks?: PluginHookEvent[];
+  /**
+   * Hook features this plugin can provide.
+   * Each entry registers this plugin as a compatible provider for a module feature.
+   * The workspace admin enables a hook and selects which installed provider to use.
+   *
+   * Example: a Salesforce CRM plugin that provides customer_sync and revenue_attribution
+   * for the projects module declares:
+   *   hook_providers: [
+   *     { module_id: "projects", feature_id: "customer_sync" },
+   *     { module_id: "projects", feature_id: "revenue_attribution" }
+   *   ]
+   */
+  hook_providers?: HookProviderDef[];
   /** Events this plugin emits on the bus. Declarative — for discovery. */
   emits?: string[];
   /** Cross-plugin bus topics this plugin subscribes to. Format: "<pluginId>:<topic>". */
@@ -510,6 +565,8 @@ export interface VencoreBackendAPI {
   notify(opts: VencoreNotifyOptions): Promise<void>;
   cron: VencoreCronNamespace;
   permissions: VencorePermissionsNamespace;
+  /** Hook provider system — check and list the features this plugin provides. */
+  hooks: VencoreHooksNamespace;
   safe: {
     list(resource: string, filter?: unknown): Promise<PluginResult<unknown[]>>;
     get(resource: string, id: string): Promise<PluginResult<unknown>>;
