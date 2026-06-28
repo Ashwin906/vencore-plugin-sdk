@@ -9,6 +9,9 @@ import type {
   VencoreFilesNamespace,
   VencoreCronNamespace,
   VencorePermissionsNamespace,
+  VencoreHooksNamespace,
+  HookProviderDef,
+  HookFeatureState,
   VencoreUser,
   VencoreWorkspace,
   VencoreFileRecord,
@@ -66,6 +69,7 @@ export class VencoreBackendImpl implements VencoreBackendAPI {
   readonly files: VencoreFilesNamespace;
   readonly cron: VencoreCronNamespace;
   readonly permissions: VencorePermissionsNamespace;
+  readonly hooks: VencoreHooksNamespace;
   readonly user: { get(): Promise<VencoreUser> };
   readonly workspace: { get(): Promise<VencoreWorkspace> };
   readonly safe: VencoreBackendAPI['safe'];
@@ -120,6 +124,13 @@ export class VencoreBackendImpl implements VencoreBackendAPI {
     this.permissions = {
       check: (userId: string, permissionKey: string) =>
         this._call<boolean>('permissions.check', { userId, permissionKey }),
+    };
+
+    this.hooks = {
+      resolve: (moduleId: string, featureId: string) =>
+        this._call<HookFeatureState | null>('hooks.resolve', { moduleId, featureId }),
+      listProvided: () =>
+        this._call<Array<HookProviderDef & { state: HookFeatureState }>>('hooks.listProvided', {}),
     };
 
     this.user = {

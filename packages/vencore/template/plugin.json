@@ -6,6 +6,9 @@
   "emits": [],
   "listens": [],
   "hooks": ["contact.created"],
+  "hook_providers": [
+    { "module_id": "projects", "feature_id": "auto_project_from_deal" }
+  ],
   "surfaces": {
     "nav": [
       { "label": "Example", "path": "/example", "group": "general" }
