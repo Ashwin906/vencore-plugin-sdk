@@ -217,6 +217,25 @@ vantage.on('contact.created', async (payload) => {
 });
 ```
 
+## Data Hub — provides / consumes
+
+`provides` and `consumes` declare hub contracts (see `hub.mdx`). Contract-based
+sharing is the preferred way to exchange data between plugins — consumers
+depend on the contract, never on a provider plugin's name.
+
+```json
+{
+  "data_access": ["hub:write:crm.contact@v1", "hub:read:crm.deal@v1"],
+  "provides": [{ "contract": "crm.contact@v1", "mode": "synced" }],
+  "consumes": [{ "contract": "crm.deal@v1", "optional": true }]
+}
+```
+
+- `provides` requires a `hub:write:<contract>` grant in `data_access`.
+- `consumes` requires a `hub:read:<contract>` grant.
+- Grants accept wildcards: `hub:read:crm.*`, `hub:read:*`.
+- Providing plugins are auto-registered as hook providers in the host.
+
 ## Cross-Plugin Events
 
 `emits` and `listens` declare bus topics for cross-plugin communication. Topics are namespaced `<pluginId>:<topic>`.

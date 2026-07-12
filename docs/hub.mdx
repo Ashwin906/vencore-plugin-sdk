@@ -1,0 +1,110 @@
+# Data Hub — Cross-Plugin Data Sharing
+
+The hub is the host-owned store plugins use to share data with each other
+without knowing about each other. Providers publish records shaped by a
+versioned **contract**; consumers query by contract id, never by plugin name.
+
+## Contracts
+
+A contract is a versioned data shape owned by the platform. Core contracts:
+
+| Contract | Shape (required fields bold) |
+|---|---|
+| `crm.contact@v1` | **external_id**, **name**, email, phone, company_name, status, owner_name, url, modified_at, extras |
+| `crm.company@v1` | **external_id**, **name**, industry, website, location, employee_count, url, modified_at, extras |
+| `crm.deal@v1` | **external_id**, **name**, value, currency, stage, is_won, is_closed, probability, close_date, contact_external_id, company_external_id, owner_name, url, modified_at, extras |
+| `crm.activity@v1` | **external_id**, **type**, subject, body, contact_external_id, deal_external_id, occurred_at, url, extras |
+
+Schemas are strict: undeclared top-level fields are rejected. Anything
+provider-specific goes into the `extras` object — generic consumers ignore
+it, provider-aware consumers may read it.
+
+`hub.contracts` (no permission needed) lists all contracts the host knows.
+
+## Manifest declarations
+
+```json
+{
+  "data_access": ["hub:write:crm.contact@v1", "hub:read:crm.deal@v1"],
+  "provides": [{ "contract": "crm.contact@v1", "mode": "synced" }],
+  "consumes": [{ "contract": "crm.deal@v1", "optional": true }]
+}
+```
+
+Rules enforced at upload time:
+
+- Every `provides`/`consumes` contract must exist in the host registry.
+- `provides` requires a matching `hub:write:<contract>` grant.
+- `consumes` requires a matching `hub:read:<contract>` grant.
+- Grants support wildcards: `hub:read:crm.*` (namespace) and `hub:read:*`.
+
+A plugin that `provides` a contract is automatically registered as a hook
+provider — admins can select it in module hook settings (e.g. "Customer
+Synchronisation" in Projects).
+
+## Backend API
+
+```ts
+// Provider — publish contract-shaped records (batch upsert on external_id)
+await vencore.hub.publish('crm.contact@v1', [
+  { external_id: 'z-42', name: 'Ada Lovelace', email: 'ada@example.com',
+    extras: { lead_source: 'Referral' } },
+]);
+
+// Consumer — query all providers' records, newest first
+const page = await vencore.hub.query('crm.contact@v1', {
+  limit: 100,
+  provider: 'zoho-crm',            // optional — restrict to one provider
+  filter: { status: 'customer' },  // optional — exact match on top-level fields
+  cursor: previousPage.next_cursor, // optional — keyset pagination
+});
+// page.records: [{ provider, external_id, data, updated_at }]
+// page.next_cursor: string | null
+
+// Discovery — who provides this contract in the workspace?
+const providers = await vencore.hub.providers('crm.contact@v1');
+// [{ plugin_id, name, record_count, last_published_at }]
+
+// Provider — delete own records
+await vencore.hub.delete('crm.contact@v1', ['z-42', 'z-43']);
+
+// Consumer — react to changes (sugar over bus 'hub:<contract>:changed')
+vencore.hub.subscribe('crm.contact@v1', async (payload) => {
+  // { provider, contract, count, external_ids }
+});
+```
+
+## Semantics and limits
+
+- **Upsert identity** is `(workspace, contract, provider, external_id)` —
+  republishing the same external_id updates the record.
+- **Whole-batch validation**: one invalid record rejects the entire publish
+  with `CONTRACT_VIOLATION` and per-record field paths.
+- **Batch limit** 500 records/call; **record size** 64 KB; **rate limit**
+  60 publish calls/min per plugin+workspace (`LIMIT_EXCEEDED`).
+- **Query limit** 100 records/page; paginate with `next_cursor`.
+- Records are removed when the provider plugin is disabled or uninstalled,
+  and `hub:<contract>:provider_removed` fires.
+- The workspace admin can disable data sharing entirely — calls then return
+  `FEATURE_DISABLED`.
+
+## Events
+
+| Topic | Fired when | Payload |
+|---|---|---|
+| `hub:<contract>:changed` | Provider publishes or deletes | `{ provider, contract, count?, deleted?, external_ids }` |
+| `hub:<contract>:provider_removed` | Provider disabled/uninstalled | `{ provider, contract }` |
+
+Consumers receive these only when the topic is derivable from their manifest
+(`consumes` entries auto-subscribe the sandbox to both topics).
+
+## Error codes
+
+| Code | Meaning |
+|---|---|
+| `UNKNOWN_CONTRACT` | Contract id not in the host registry |
+| `FORBIDDEN` | Missing `hub:read:`/`hub:write:` grant |
+| `NOT_A_PROVIDER` | Publish to a contract not in `provides[]` |
+| `CONTRACT_VIOLATION` | Records failed schema validation |
+| `LIMIT_EXCEEDED` | Batch, size, or rate limit hit |
+| `FEATURE_DISABLED` | Workspace turned plugin data sharing off |
